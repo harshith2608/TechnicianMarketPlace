@@ -1,0 +1,265 @@
+// Firestore Security Rules for Payment System
+// Date: January 19, 2026
+// Purpose: Control access to payments, payouts, disputes, and payment_logs
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ============================================================================
+    // HELPER FUNCTIONS
+    // ============================================================================
+
+    // Check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Get current user ID
+    function currentUserId() {
+      return request.auth.uid;
+    }
+
+    // Check if user is admin
+    function isAdmin() {
+      return isAuthenticated() && get(/databases/$(database)/documents/users/$(currentUserId())).data.role == 'admin';
+    }
+
+    // Check if user is technician
+    function isTechnician() {
+      return isAuthenticated() && get(/databases/$(database)/documents/users/$(currentUserId())).data.role == 'technician';
+    }
+
+    // Check if user is customer
+    function isCustomer() {
+      return isAuthenticated() && get(/databases/$(database)/documents/users/$(currentUserId())).data.role == 'customer';
+    }
+
+    // ============================================================================
+    // PAYMENTS COLLECTION
+    // Purpose: Track customer payments to marketplace
+    // ============================================================================
+
+    match /payments/{paymentId} {
+
+      // READ: Allowed for document owner, technician (receiver), or admin
+      allow read: if isAuthenticated() && (
+        request.auth.uid == resource.data.customerId ||      // Customer sees their own payments
+        request.auth.uid == resource.data.technicianId ||    // Technician sees payments for their service
+        isAdmin()                                              // Admin sees all payments
+      );
+
+      // CREATE: Only backend (Cloud Functions) via server context
+      // Frontend apps cannot directly create payments
+      allow create: if false; // Backend only (service account via Cloud Functions)
+
+      // UPDATE: Only backend can update payment status
+      allow update: if false; // Backend only (service account via Cloud Functions)
+
+      // DELETE: Never allow (immutable for audit)
+      allow delete: if false;
+
+      // ========================================================================
+      // SUB-COLLECTION: refunds (if payment is refunded)
+      // ========================================================================
+      match /refunds/{refundId} {
+        allow read: if isAuthenticated() && (
+          request.auth.uid == resource.data.customerId ||
+          request.auth.uid == resource.data.technicianId ||
+          isAdmin()
+        );
+        allow create: if false;   // Backend only
+        allow update: if false;   // Backend only
+        allow delete: if false;
+      }
+    }
+
+    // ============================================================================
+    // PAYOUTS COLLECTION
+    // Purpose: Track technician payouts (marketplace → technician bank)
+    // ============================================================================
+
+    match /payouts/{payoutId} {
+
+      // READ: Only technician (recipient), admin, or system
+      allow read: if isAuthenticated() && (
+        request.auth.uid == resource.data.technicianId ||    // Technician sees their own payouts
+        isAdmin()                                              // Admin sees all payouts
+      );
+
+      // CREATE: Only backend
+      allow create: if false; // Backend only (Cloud Functions)
+
+      // UPDATE: Only backend
+      allow update: if false; // Backend only (Cloud Functions)
+
+      // DELETE: Never allow
+      allow delete: if false;
+    }
+
+    // ============================================================================
+    // DISPUTES COLLECTION
+    // Purpose: Track payment disputes (customer complaints)
+    // ============================================================================
+
+    match /disputes/{disputeId} {
+
+      // READ: Customer (creator), technician (involved), admin, or system
+      allow read: if isAuthenticated() && (
+        request.auth.uid == resource.data.customerId ||      // Customer sees their dispute
+        request.auth.uid == resource.data.technicianId ||    // Technician sees disputes about them
+        isAdmin()                                              // Admin sees all disputes
+      );
+
+      // CREATE: Customer can create dispute (with validation)
+      allow create: if isAuthenticated() && isCustomer() && (
+        request.resource.data.customerId == currentUserId() &&         // Own dispute
+        request.resource.data.paymentId != null &&                      // Must reference a payment
+        request.resource.data.reason != null &&                         // Must have reason
+        request.resource.data.reason in [
+          'service_quality_issue',
+          'service_not_completed',
+          'wrong_amount_charged',
+          'duplicate_charge',
+          'unauthorized_charge',
+          'other'
+        ] &&
+        request.resource.data.status == 'open' &&                       // Start as open
+        request.resource.data.description.size() > 10 &&               // At least 10 chars
+        request.resource.data.description.size() < 1000                // Max 1000 chars
+      );
+
+      // UPDATE: Admin can update dispute status/resolution
+      allow update: if isAuthenticated() && (
+        isAdmin() && (
+          request.resource.data.status in ['investigating', 'resolved', 'closed'] &&
+          (request.resource.data.resolutionType == null || 
+           request.resource.data.resolutionType in ['refund', 'partial_refund', 'rejected', 'closed_noaction'])
+        )
+      );
+
+      // DELETE: Never allow (audit trail)
+      allow delete: if false;
+
+      // Technician can update their response
+      match /technicianResponse/{responseId} {
+        allow read: if isAuthenticated() && (
+          request.auth.uid == resource.data.technicianId ||
+          request.auth.uid == resource.data.customerId ||
+          isAdmin()
+        );
+
+        allow create: if isAuthenticated() && 
+          request.auth.uid == get(/databases/$(database)/documents/disputes/$(disputeId)).data.technicianId && (
+          request.resource.data.response != null &&
+          request.resource.data.response.size() > 5
+        );
+
+        allow update: if false;  // No updates, only create
+        allow delete: if false;
+      }
+    }
+
+    // ============================================================================
+    // PAYMENT_LOGS COLLECTION
+    // Purpose: Immutable audit trail of all payment events
+    // ============================================================================
+
+    match /payment_logs/{logId} {
+
+      // READ: Restricted by user role
+      allow read: if isAuthenticated() && (
+        isAdmin() ||  // Admin sees all logs
+        (isTechnician() && (
+          // Technicians see logs for payments they received
+          get(/databases/$(database)/documents/payments/$(resource.data.paymentId)).data.technicianId == currentUserId() ||
+          // Technicians see logs for their payouts
+          get(/databases/$(database)/documents/payouts/$(resource.data.payoutId)).data.technicianId == currentUserId()
+        )) ||
+        (isCustomer() && (
+          // Customers see logs for payments they made
+          get(/databases/$(database)/documents/payments/$(resource.data.paymentId)).data.customerId == currentUserId()
+        ))
+      );
+
+      // CREATE: Only backend
+      allow create: if false; // Backend only (Cloud Functions)
+
+      // UPDATE: Only admin can add notes (read-only append)
+      allow update: if isAdmin() && (
+        // Only allow adding adminNotes field, nothing else
+        request.resource.data.keys().hasOnly(resource.data.keys().concat(['adminNotes'])) &&
+        request.resource.data.adminNotes != null
+      );
+
+      // DELETE: Never allow (immutable)
+      allow delete: if false;
+    }
+
+    // ============================================================================
+    // USERS COLLECTION (for payment-related fields)
+    // Note: Only show bank account info to owner and admin
+    // ============================================================================
+
+    match /users/{userId} {
+      
+      // Existing user access rules (if any)
+      // Add this rule for bankAccounts subcollection:
+      
+      match /bankAccounts/{accountId} {
+        // Technician can read/write own bank accounts
+        allow read: if isAuthenticated() && (
+          request.auth.uid == userId ||   // Own account
+          isAdmin()                       // Admin
+        );
+
+        allow create: if isAuthenticated() && (
+          request.auth.uid == userId &&  // Create own account
+          isTechnician() &&               // Only technicians have bank accounts
+          request.resource.data.accountType in ['upi', 'bank_transfer'] &&
+          request.resource.data.isVerified == false  // New accounts start unverified
+        );
+
+        allow update: if isAuthenticated() && (
+          request.auth.uid == userId &&
+          isTechnician()
+        );
+
+        allow delete: if isAuthenticated() && (
+          request.auth.uid == userId &&
+          isTechnician() &&
+          !resource.data.isDefault  // Can't delete default account
+        );
+      }
+    }
+
+    // ============================================================================
+    // BOOKINGS COLLECTION (payment integration)
+    // ============================================================================
+
+    match /bookings/{bookingId} {
+      
+      // For payment integration with bookings:
+      // Customers and technicians can read their own bookings
+      allow read: if isAuthenticated();
+
+      // When reading booking, can query related payments
+      match /paymentInfo/{paymentInfoId} {
+        allow read: if isAuthenticated() && (
+          request.auth.uid == get(/databases/$(database)/documents/bookings/$(bookingId)).data.customerId ||
+          request.auth.uid == get(/databases/$(database)/documents/bookings/$(bookingId)).data.technicianId ||
+          isAdmin()
+        );
+      }
+    }
+
+    // ============================================================================
+    // CATCH-ALL (deny everything else)
+    // ============================================================================
+
+    match /{document=**} {
+      allow read: if false;
+      allow write: if false;
+    }
+  }
+}

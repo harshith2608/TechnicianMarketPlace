@@ -1,0 +1,110 @@
+==============================================================================
+                    IMMEDIATE ACTION REQUIRED
+==============================================================================
+
+PROBLEM: "Missing or insufficient permissions" when creating services
+
+SOLUTION: Update Firebase Security Rules (takes 2 minutes)
+
+==============================================================================
+                           STEP-BY-STEP FIX
+==============================================================================
+
+1. Open Firebase Console
+   URL: https://console.firebase.google.com/
+
+2. Select Your Project
+   Click: techsavy-cc539
+
+3. Go to Firestore Database
+   Left sidebar → Firestore Database
+
+4. Click Rules Tab
+   At top: Data | Rules | Indexes
+   Click: Rules
+
+5. Clear Existing Rules
+   Select all: Ctrl+A (or Cmd+A)
+   Delete: Press Delete key
+
+6. Copy Rules from Project
+   File: /firestore.rules (in project root)
+   Copy all content
+
+7. Paste into Firebase Console
+   Click in editor
+   Paste the rules
+
+8. Publish Changes
+   Blue button: "Publish" (top right)
+   Click it!
+
+9. Wait for Deployment
+   Status shows: "Published" (1-2 minutes)
+
+10. Test in App
+    Go back to app simulator
+    Services → Create → Fill form → Create Service
+    Should work! ✅
+
+==============================================================================
+                            IF STUCK
+==============================================================================
+
+1. Did you click Publish?
+   Go back to Rules tab - look for blue Publish button
+
+2. Did you update the right project?
+   Top-left corner should show: techsavy-cc539
+
+3. Wait longer?
+   Rules take 1-2 minutes to propagate
+   Restart app if still not working
+
+4. Check error details?
+   Firebase Console → Firestore → Logs tab
+   Look for your error with timestamp
+
+==============================================================================
+                         DETAILED GUIDES
+==============================================================================
+
+For step-by-step instructions:
+   → Read: FIREBASE_CONSOLE_GUIDE.md
+
+For visual explanations:
+   → Read: FIRESTORE_VISUAL_GUIDE.md
+
+For troubleshooting errors:
+   → Read: FIRESTORE_ERROR_GUIDE.md
+
+==============================================================================
+                            QUICK INFO
+==============================================================================
+
+What Changed:
+  ✓ Created firestore.rules file (new)
+  ✓ Created firebase.json file (new)
+  ✓ No app code changes needed
+  ✓ Just updating Firebase Console settings
+
+What the Rules Do:
+  ✓ Allow users to browse all services
+  ✓ Allow users to create new services
+  ✓ Allow users to edit/delete their own services
+  ✓ Prevent unauthorized access
+  ✓ Validate all service data
+
+Timeline:
+  2 minutes → Copy rules
+  1 minute  → Publish
+  2 minutes → Rules propagate
+  TOTAL: 5 minutes
+
+==============================================================================
+
+You've got this! It's a quick fix. 🚀
+
+For detailed instructions, see: FIREBASE_CONSOLE_GUIDE.md
+
+==============================================================================

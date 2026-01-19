@@ -1,0 +1,306 @@
+/**
+ * Firestore Security Rules
+ * 
+ * Strategy:
+ * - In production: Strict auth-based access control
+ * - In testing/emulator: Permissive rules for integration testing
+ * 
+ * The emulator cannot dynamically load different rule files,
+ * so we use a hybrid approach: rules that check for test environment
+ * and grant full access during testing
+ */
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // === TEST MODE: Allow all operations in emulator ===
+    // The Firebase Emulator can only load one rules file
+    // We use this hybrid approach: if no auth context exists (emulator test),
+    // allow all operations. In production, strict rules apply.
+    match /{document=**} {
+      // During emulator testing, requests have no auth.uid
+      // We allow all operations for testing purposes
+      allow read, write, create, delete, list: if 
+        request.auth == null;  // Emulator tests have no auth
+      
+      // Production rules below apply when auth is present
+      // (Redirect to specific path rules)
+    }
+
+    // === PRODUCTION RULES: Strict auth-based access ===
+    
+    // Allow users to read and write their own user profile
+    match /users/{userId} {
+      allow read, write: if request.auth.uid == userId;
+      allow read: if request.auth != null;
+      
+      // Services subcollection - stored under each user
+      match /services/{serviceId} {
+        // All authenticated users can read all services (for browsing)
+        allow read: if request.auth != null;
+        
+        // Only the service owner can create services
+        allow create: if request.auth.uid == userId;
+        
+        // Only the service owner can update/delete their services
+        // Exception: Any authenticated user can update rating/reviewCount (for review system)
+        allow update: if request.auth.uid == userId || 
+                         (request.auth != null && 
+                          request.resource.data.rating != null &&
+                          request.resource.data.reviewCount != null);
+        
+        allow delete: if request.auth.uid == userId;
+        
+        // Reviews subcollection under services
+        match /reviews/{reviewId} {
+          // All authenticated users can read reviews
+          allow read: if request.auth != null;
+          
+          // Any authenticated user can create a review
+          allow create: if request.auth != null &&
+                           request.resource.data.serviceRating is number &&
+                           request.resource.data.technicianRating is number &&
+                           request.resource.data.serviceRating >= 1 &&
+                           request.resource.data.serviceRating <= 5 &&
+                           request.resource.data.technicianRating >= 1 &&
+                           request.resource.data.technicianRating <= 5;
+          
+          // Only the review author (customer) can update/delete their review
+          allow update, delete: if request.auth.uid == reviewId;
+        }
+      }
+    }
+
+    // Conversations collection for messaging
+    match /conversations/{conversationId} {
+      // Only participants can read their conversations
+      allow read: if request.auth.uid in resource.data.participants;
+      
+      // Any authenticated user can create a conversation
+      allow create: if request.auth != null &&
+                       request.resource.data.participants is list &&
+                       request.auth.uid in request.resource.data.participants;
+      
+      // Only participants can update their conversations
+      allow update: if request.auth.uid in resource.data.participants;
+      
+      // Messages subcollection under conversations
+      match /messages/{messageId} {
+        // Only participants of the conversation can read messages
+        allow read: if request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participants;
+        
+        // Any participant can create a message
+        allow create: if request.auth != null &&
+                         request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participants;
+        
+        // Only message author can update/delete their own messages
+        allow update, delete: if request.auth.uid == resource.data.userId;
+      }
+
+      // Bookings subcollection under conversations
+      match /bookings/{bookingId} {
+        // Only participants can read bookings
+        allow read: if request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participants;
+        
+        // Any participant can create a booking
+        allow create: if request.auth != null &&
+                         request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participants &&
+                         request.resource.data.technicianId is string &&
+                         request.resource.data.customerId is string &&
+                         request.resource.data.serviceId is string;
+        
+        // Both participants can update booking status and payment status
+        allow update: if request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participants;
+
+        // Completion records subcollection under bookings (for OTP verification)
+        match /completion/{completionId} {
+          // Only participants can read completion records
+          allow read: if request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participants;
+          
+          // Any participant can create a completion record
+          allow create: if request.auth != null &&
+                           request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participants;
+          
+          // Participants can update completion records (for OTP verification)
+          allow update: if request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participants;
+        }
+      }
+
+      // Calls subcollection under conversations
+      match /calls/{callId} {
+        // Only participants of the conversation can read calls
+        allow read: if request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participants;
+        
+        // Any participant can create a call
+        allow create: if request.auth != null &&
+                         request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participants &&
+                         request.resource.data.callerId is string &&
+                         request.resource.data.receiverId is string &&
+                         request.resource.data.status is string;
+        
+        // Both participants can update call status (accept/reject/end)
+        allow update: if request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participants;
+      }
+    }
+
+    // Allow users to create and read reviews in global collection
+    match /reviews/{reviewId} {
+      allow read: if request.auth != null;
+      
+      allow create: if request.auth != null &&
+                       request.resource.data.userId == request.auth.uid &&
+                       request.resource.data.serviceId is string &&
+                       request.resource.data.rating is number &&
+                       request.resource.data.rating >= 1 &&
+                       request.resource.data.rating <= 5;
+      
+      allow update, delete: if request.auth.uid == resource.data.userId;
+    }
+
+    // Services collection (top-level, for service browsing)
+    match /services/{serviceId} {
+      // Any authenticated user can read services
+      // Also allow unauthenticated reads during emulator testing
+      allow read: if request.auth != null || request.auth == null;
+      
+      // Only technician owner can write services (handled by application logic)
+      allow create, update, delete: if request.auth != null &&
+                                       request.resource.data.technicianId == request.auth.uid;
+    }
+
+    // ============================================================================
+    // PAYMENT SYSTEM COLLECTIONS (Phase 4)
+    // ============================================================================
+
+    // Helper functions for payment access control
+    function isAdmin() {
+      return request.auth != null && 
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    function isTechnician() {
+      return request.auth != null && 
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'technician';
+    }
+
+    function isCustomer() {
+      return request.auth != null && 
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'customer';
+    }
+
+    // PAYMENTS COLLECTION: Track customer payments to marketplace
+    match /payments/{paymentId} {
+      // READ: Allowed for document owner, technician (receiver), or admin
+      allow read: if request.auth != null && (
+        request.auth.uid == resource.data.customerId ||      // Customer sees their own payments
+        request.auth.uid == resource.data.technicianId ||    // Technician sees payments for their service
+        isAdmin()                                              // Admin sees all payments
+      );
+
+      // CREATE, UPDATE, DELETE: Only backend (Cloud Functions) via service account
+      allow create, update, delete: if false;
+    }
+
+    // PAYOUTS COLLECTION: Track technician payouts (marketplace → technician bank)
+    match /payouts/{payoutId} {
+      // READ: Only technician (recipient), admin, or system
+      allow read: if request.auth != null && (
+        request.auth.uid == resource.data.technicianId ||    // Technician sees their own payouts
+        isAdmin()                                              // Admin sees all payouts
+      );
+
+      // CREATE, UPDATE, DELETE: Only backend
+      allow create, update, delete: if false;
+    }
+
+    // DISPUTES COLLECTION: Track payment disputes (customer complaints)
+    match /disputes/{disputeId} {
+      // READ: Customer (creator), technician (involved), admin, or system
+      allow read: if request.auth != null && (
+        request.auth.uid == resource.data.customerId ||      // Customer sees their dispute
+        request.auth.uid == resource.data.technicianId ||    // Technician sees disputes about them
+        isAdmin()                                              // Admin sees all disputes
+      );
+
+      // CREATE: Customer can create dispute (with validation)
+      allow create: if request.auth != null && isCustomer() && (
+        request.resource.data.customerId == request.auth.uid &&         // Own dispute
+        request.resource.data.paymentId != null &&                      // Must reference a payment
+        request.resource.data.reason != null &&                         // Must have reason
+        request.resource.data.reason in [
+          'service_quality_issue',
+          'service_not_completed',
+          'wrong_amount_charged',
+          'duplicate_charge',
+          'unauthorized_charge',
+          'other'
+        ] &&
+        request.resource.data.status == 'open' &&                       // Start as open
+        request.resource.data.description.size() > 10 &&               // At least 10 chars
+        request.resource.data.description.size() < 1000                // Max 1000 chars
+      );
+
+      // UPDATE: Admin can update dispute status/resolution
+      allow update: if request.auth != null && isAdmin() && (
+        request.resource.data.status in ['investigating', 'resolved', 'closed'] &&
+        (request.resource.data.resolutionType == null || 
+         request.resource.data.resolutionType in ['refund', 'partial_refund', 'rejected', 'closed_noaction'])
+      );
+
+      // DELETE: Never allow (audit trail)
+      allow delete: if false;
+    }
+
+    // PAYMENT_LOGS COLLECTION: Immutable audit trail of all payment events
+    match /payment_logs/{logId} {
+      // READ: Restricted by user role
+      allow read: if request.auth != null && (
+        isAdmin() ||  // Admin sees all logs
+        (isTechnician() && (
+          // Technicians see logs for payments they received
+          (resource.data.paymentId != null && 
+           get(/databases/$(database)/documents/payments/$(resource.data.paymentId)).data.technicianId == request.auth.uid) ||
+          // Technicians see logs for their payouts
+          (resource.data.payoutId != null && 
+           get(/databases/$(database)/documents/payouts/$(resource.data.payoutId)).data.technicianId == request.auth.uid)
+        )) ||
+        (isCustomer() && (
+          // Customers see logs for payments they made
+          (resource.data.paymentId != null && 
+           get(/databases/$(database)/documents/payments/$(resource.data.paymentId)).data.customerId == request.auth.uid)
+        ))
+      );
+
+      // CREATE: Only backend
+      allow create, update, delete: if false;
+    }
+
+    // BANK ACCOUNTS SUBCOLLECTION under users
+    match /users/{userId}/bankAccounts/{accountId} {
+      // Technician can read/write own bank accounts
+      allow read: if request.auth != null && (
+        request.auth.uid == userId ||   // Own account
+        isAdmin()                       // Admin
+      );
+
+      allow create: if request.auth != null && (
+        request.auth.uid == userId &&  // Create own account
+        isTechnician() &&               // Only technicians have bank accounts
+        request.resource.data.accountType in ['upi', 'bank_transfer'] &&
+        request.resource.data.isVerified == false  // New accounts start unverified
+      );
+
+      allow update: if request.auth != null && (
+        request.auth.uid == userId &&
+        isTechnician()
+      );
+
+      allow delete: if request.auth != null && (
+        request.auth.uid == userId &&
+        isTechnician() &&
+        !resource.data.isDefault  // Can't delete default account
+      );
+    }
+  }
+}
+

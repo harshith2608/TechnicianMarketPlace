@@ -1,0 +1,36 @@
+
+> technicianmarketplace@1.0.0 test
+> jest src/__tests__/integration/firebase-emulator.test.js
+
+  console.log
+    
+    🔥 Initializing Firebase Emulator Suite for testing...
+
+      at Object.log (src/__tests__/setup/firebase-emulator-setup.js:36:11)
+
+  console.log
+    ✅ Firestore Emulator connected (localhost:8080)
+
+      at Object.log (src/__tests__/setup/firebase-emulator-setup.js:53:17)
+
+  console.log
+    🌱 Seeding Firestore Emulator with test data...
+
+      at log (src/__tests__/setup/emulator-seed.js:180:11)
+
+  console.log
+    Adding users...
+
+      at log (src/__tests__/setup/emulator-seed.js:184:13)
+
+  console.log
+    
+    🧹 Cleaning up Firebase Emulator...
+
+      at Object.log (src/__tests__/setup/firebase-emulator-setup.js:76:11)
+
+  console.log
+    ✅ Firebase Emulator cleanup complete
+
+      at Object.log (src/__tests__/setup/firebase-emulator-setup.js:82:15)
+

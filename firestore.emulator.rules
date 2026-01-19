@@ -1,0 +1,21 @@
+/**
+ * Firestore Rules for Emulator Testing Only
+ * 
+ * ⚠️ DO NOT USE IN PRODUCTION
+ * 
+ * This file provides permissive rules for local Firebase Emulator testing.
+ * All operations are allowed to facilitate testing and development.
+ * 
+ * Production rules are in: firestore.rules
+ */
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Allow ALL operations for emulator testing
+    // This enables seed data to be written without auth complications
+    match /{document=**} {
+      allow read, write, create, delete, list: if true;
+    }
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "projects": {
+    "default": "techsavy-cc539",
+    "emulator": "technicianmarketplace-emulator",
+    "prod": "techsavy-cc539"
+  },
+  "targets": {}
+}

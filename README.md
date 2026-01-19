@@ -1,50 +1,82 @@
-# Welcome to your Expo app 👋
+# Technician Marketplace
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+A React Native Expo application with Firebase authentication and Firestore database integration.
 
-## Get started
+## Features
 
-1. Install dependencies
+- **Login Screen** - Authenticate with email and password
+- **Register Screen** - Create new user accounts
+- **Home Screen** - Welcome screen after successful login
+- **Firebase Integration** - Secure authentication and user data storage
 
-   ```bash
-   npm install
-   ```
+## Setup Instructions
 
-2. Start the app
+### 1. Firebase Configuration
 
-   ```bash
-   npx expo start
-   ```
+1. Go to [Firebase Console](https://console.firebase.google.com/)
+2. Create a new project or select existing one
+3. Enable Email/Password authentication in Auth section
+4. Create a Firestore Database
 
-In the output, you'll find options to open the app in a
+### 2. Get Firebase Credentials
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+Get your credentials from Firebase Console > Project Settings
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+### 3. Configure Environment Variables
 
-## Get a fresh project
+Create `.env.local` file in the root directory:
 
-When you're ready, run:
-
-```bash
-npm run reset-project
+```env
+EXPO_PUBLIC_FIREBASE_API_KEY=your_api_key
+EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN=your_auth_domain
+EXPO_PUBLIC_FIREBASE_PROJECT_ID=your_project_id
+EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET=your_storage_bucket
+EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your_messaging_sender_id
+EXPO_PUBLIC_FIREBASE_APP_ID=your_app_id
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+### 4. Install Firebase
 
-## Learn more
+```bash
+npm install firebase
+```
 
-To learn more about developing your project with Expo, look at the following resources:
+### 5. Start the App
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+```bash
+npm start
+```
 
-## Join the community
+Then press:
+- `w` for web at http://localhost:8081
+- `i` for iOS simulator
+- `a` for Android emulator
+- Scan QR code with Expo Go
 
-Join our community of developers creating universal apps.
+## Project Structure
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+```
+src/
+├── config/firebase.js
+├── context/AuthContext.js
+├── screens/
+│   ├── LoginScreen.js
+│   ├── RegisterScreen.js
+│   └── HomeScreen.js
+└── navigation/RootNavigator.js
+```
+
+## Firestore Security Rules
+
+Set these rules in Firestore:
+
+```
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /users/{userId} {
+      allow read, write: if request.auth.uid == userId;
+    }
+  }
+}
+```
