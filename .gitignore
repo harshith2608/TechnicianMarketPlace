@@ -32,6 +32,12 @@ yarn-error.*
 
 # local env files
 .env*.local
+.env.staging
+.env.emulator
+functions/.env.staging
+firebase-staging-key.json
+.firebaserc
+firebase.json
 
 # typescript
 *.tsbuildinfo
