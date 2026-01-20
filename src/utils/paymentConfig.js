@@ -7,7 +7,12 @@
  * Payout: Weekly for technicians
  */
 
+// Load Razorpay key from environment
+const RAZORPAY_KEY_ID = process.env.EXPO_PUBLIC_RAZORPAY_KEY_ID || '';
+
 export const PAYMENT_CONFIG = {
+  // ====== RAZORPAY API KEY ======
+  RAZORPAY_KEY_ID,
   // ====== COMMISSION SETTINGS ======
   // Commission calculation: min(10% of booking, ₹200)
   COMMISSION_RATE: 0.10, // 10%
