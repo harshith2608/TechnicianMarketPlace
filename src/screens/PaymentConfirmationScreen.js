@@ -44,11 +44,13 @@ const PaymentConfirmationScreen = ({ route, navigation }) => {
   }, [payment]);
 
   /**
-   * Go back to booking or home
+   * Go back to home after success
    */
   const handleNavigateBack = () => {
     if (status === 'success') {
-      navigation.navigate('Bookings');
+      // Navigate to Home instead of Bookings to avoid navigation loop
+      // (BookingsScreen → PaymentConfirmation → Bookings creates a back button loop)
+      navigation.navigate('Home');
     } else {
       navigation.goBack();
     }
