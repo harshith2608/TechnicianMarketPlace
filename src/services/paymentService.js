@@ -467,4 +467,5 @@ export default {
   createPayout,
   getPaymentAnalytics,
   generatePaymentReceipt,
+  updatePaymentNotes,
 };
