@@ -313,11 +313,12 @@ const PayoutSettingsScreen = ({ navigation }) => {
   );
 
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.title}>Payout Settings</Text>
-        <Text style={styles.subtitle}>Configure where and how to receive your earnings</Text>
+    <SafeAreaView style={styles.safeContainer} edges={['top', 'left', 'right']}>
+      <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+        {/* Header */}
+        <View style={styles.header}>
+          <Text style={styles.title}>Payout Settings</Text>
+          <Text style={styles.subtitle}>Configure where and how to receive your earnings</Text>
       </View>
 
       {/* Earnings Overview */}
@@ -520,11 +521,16 @@ const PayoutSettingsScreen = ({ navigation }) => {
       </View>
 
       <View style={styles.spacing} />
-    </ScrollView>
+      </ScrollView>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
+  safeContainer: {
+    flex: 1,
+    backgroundColor: '#f5f5f5',
+  },
   container: {
     flex: 1,
     backgroundColor: '#f5f5f5',
