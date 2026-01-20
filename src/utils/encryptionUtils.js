@@ -93,6 +93,7 @@ const encryptPayoutData = (data) => {
       _timestamp: new Date().toISOString(),
     };
   }
+};
 
 /**
  * Decrypts sensitive payout data using AES decryption
