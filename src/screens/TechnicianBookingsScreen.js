@@ -39,6 +39,7 @@ export const TechnicianBookingsScreen = ({ navigation }) => {
       });
       unsubscribersRef.current = [];
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
 
   // Refresh bookings when screen is focused
@@ -71,7 +72,6 @@ export const TechnicianBookingsScreen = ({ navigation }) => {
       );
       const conversationsSnap = await getDocs(userConversationsQuery);
       
-      const allBookings = [];
       let conversationsProcessed = 0;
 
       // Set up real-time listeners for each conversation's bookings
