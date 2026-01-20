@@ -2,14 +2,14 @@ import { useFocusEffect } from '@react-navigation/native';
 import { collection, doc, getDoc, getDocs, limit, onSnapshot, query, updateDoc, where } from 'firebase/firestore';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    FlatList,
-    RefreshControl,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View
+  ActivityIndicator,
+  Alert,
+  FlatList,
+  RefreshControl,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSelector } from 'react-redux';
@@ -217,6 +217,7 @@ export const TechnicianBookingsScreen = ({ navigation }) => {
       console.log(`   ✓ History bookings: ${filtered.length}`);
       return filtered;
     }
+  };
 
   const formatDate = (dateString) => {
     try {
