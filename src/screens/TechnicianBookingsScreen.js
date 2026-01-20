@@ -13,6 +13,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSelector } from 'react-redux';
 import { db } from '../config/firebase';
+import { processRefundRequest } from '../services/bookingService';
 
 export const TechnicianBookingsScreen = ({ navigation }) => {
   const insets = useSafeAreaInsets();
@@ -213,7 +214,7 @@ export const TechnicianBookingsScreen = ({ navigation }) => {
   const handleCancelBooking = useCallback((booking) => {
     Alert.alert(
       'Cancel Booking',
-      'Are you sure you want to cancel this booking?',
+      'Are you sure you want to cancel this booking? Customer refund will be processed based on the cancellation policy.',
       [
         { text: 'No', style: 'cancel' },
         {
@@ -221,12 +222,49 @@ export const TechnicianBookingsScreen = ({ navigation }) => {
           style: 'destructive',
           onPress: async () => {
             try {
+              // Show loading indicator
+              Alert.alert('Processing', 'Cancelling booking and processing refund...', [
+                { text: 'Wait', disabled: true }
+              ], { cancelable: false });
+
               const bookingRef = doc(db, 'conversations', booking.conversationId, 'bookings', booking.id);
+              const bookingSnap = await getDoc(bookingRef);
+              const bookingData = bookingSnap.data();
+
               await updateDoc(bookingRef, {
                 status: 'cancelled',
+                cancelledAt: new Date().toISOString(),
               });
+
+              // Process refund if payment exists
+              if (bookingData?.paymentId) {
+                try {
+                  const refundResult = await processRefundRequest(
+                    bookingData.paymentId,
+                    {
+                      reason: 'Booking cancelled by technician',
+                      bookingId: booking.id,
+                    }
+                  );
+
+                  // Dismiss loading alert
+                  Alert.alert(
+                    'Booking Cancelled',
+                    `Booking cancelled successfully!\n\nCustomer Refund: ₹${refundResult.customerRefund.toFixed(2)}\n${refundResult.reason}`
+                  );
+                } catch (refundError) {
+                  console.warn('Refund processing error:', refundError.message);
+                  // Even if refund fails, booking is cancelled
+                  Alert.alert(
+                    'Booking Cancelled',
+                    'Booking cancelled. Note: Refund processing encountered an issue. Customer will be notified.'
+                  );
+                }
+              } else {
+                Alert.alert('Success', 'Booking cancelled successfully');
+              }
+
               await fetchTechnicianBookings();
-              Alert.alert('Success', 'Booking cancelled successfully');
             } catch (error) {
               console.error('Error cancelling booking:', error);
               setError(error.message || 'Failed to cancel booking');

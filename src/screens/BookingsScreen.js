@@ -12,6 +12,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSelector } from 'react-redux';
 import { db } from '../config/firebase';
+import { processRefundRequest } from '../services/bookingService';
 
 export const BookingsScreen = ({ navigation }) => {
   const insets = useSafeAreaInsets();
@@ -151,7 +152,7 @@ export const BookingsScreen = ({ navigation }) => {
   const handleCancelBooking = (booking) => {
     Alert.alert(
       'Cancel Booking',
-      'Are you sure you want to cancel this booking?',
+      'Are you sure you want to cancel this booking? A refund will be processed based on the cancellation policy.',
       [
         { text: 'No', style: 'cancel' },
         {
@@ -159,16 +160,56 @@ export const BookingsScreen = ({ navigation }) => {
           style: 'destructive',
           onPress: async () => {
             try {
+              // Show loading indicator
+              Alert.alert('Processing', 'Cancelling booking and processing refund...', [
+                { text: 'Wait', disabled: true }
+              ], { cancelable: false });
+
+              // First, get the payment ID for this booking
               const bookingRef = doc(db, 'conversations', booking.conversationId, 'bookings', booking.id);
+              const bookingSnap = await getDoc(bookingRef);
+              const bookingData = bookingSnap.data();
+              
+              // Update booking status to cancelled
               await updateDoc(bookingRef, {
                 status: 'cancelled',
+                cancelledAt: new Date().toISOString(),
               });
+
+              // Process refund if payment exists
+              if (bookingData?.paymentId) {
+                try {
+                  const refundResult = await processRefundRequest(
+                    bookingData.paymentId,
+                    {
+                      reason: 'Customer cancelled booking',
+                      bookingId: booking.id,
+                    }
+                  );
+
+                  // Dismiss loading alert
+                  Alert.alert(
+                    'Booking Cancelled',
+                    `Booking cancelled successfully!\n\nRefund: ₹${refundResult.customerRefund.toFixed(2)}\nRefund Type: ${refundResult.reason}`
+                  );
+                } catch (refundError) {
+                  console.warn('Refund processing error:', refundError.message);
+                  // Even if refund fails, booking is cancelled
+                  Alert.alert(
+                    'Booking Cancelled',
+                    'Booking cancelled. Note: Refund processing encountered an issue. Please contact support if refund is not received within 3-5 business days.'
+                  );
+                }
+              } else {
+                // No payment ID, just show success
+                Alert.alert('Success', 'Booking cancelled successfully');
+              }
+
               // Refresh bookings
               fetchBookings();
-              Alert.alert('Success', 'Booking cancelled successfully');
             } catch (error) {
               console.error('Error cancelling booking:', error);
-              Alert.alert('Error', 'Failed to cancel booking');
+              Alert.alert('Error', 'Failed to cancel booking: ' + error.message);
             }
           },
         },
