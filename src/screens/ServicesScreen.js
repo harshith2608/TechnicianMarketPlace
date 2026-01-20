@@ -1,4 +1,3 @@
-import * as ImagePicker from 'expo-image-picker';
 import { useEffect, useState } from 'react';
 import {
     ActivityIndicator,
@@ -22,6 +21,15 @@ import {
     fetchUserServices,
     updateService,
 } from '../redux/serviceSlice';
+
+// Lazy load ImagePicker to avoid native module loading issues
+let ImagePicker = null;
+const loadImagePicker = async () => {
+  if (!ImagePicker) {
+    ImagePicker = await import('expo-image-picker');
+  }
+  return ImagePicker;
+};
 
 const CATEGORIES = ['Plumbing', 'Electrical', 'Carpentry', 'Painting', 'Cleaning', 'HVAC', 'Other'];
 
@@ -53,7 +61,8 @@ export const ServicesScreen = ({ navigation }) => {
 
   const pickImages = async () => {
     try {
-      const result = await ImagePicker.launchImageLibraryAsync({
+      const picker = await loadImagePicker();
+      const result = await picker.launchImageLibraryAsync({
         mediaTypes: ['images'],
         allowsMultiple: true,
         aspect: [4, 3],
