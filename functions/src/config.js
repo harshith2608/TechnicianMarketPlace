@@ -1,10 +1,17 @@
 /**
  * Firebase Cloud Functions Configuration
  * Centralized configuration for all payment processing functions
+ * 
+ * ⚠️ IMPORTANT: Razorpay credentials must be set via environment variables!
+ * See /functions/.env.example for setup instructions.
+ * 
+ * These credentials are required in Firebase Cloud Functions for refunds to work.
+ * If they're not set, the refund API calls will fail with authentication errors.
  */
 
 module.exports = {
   // Razorpay Configuration
+  // ⚠️ CRITICAL: Must be set in .env file for deployment
   razorpay: {
     keyId: process.env.RAZORPAY_KEY_ID || 'rzp_test_S5Qwfrbq71Ub9s',
     keySecret: process.env.RAZORPAY_KEY_SECRET || 'your_razorpay_key_secret',

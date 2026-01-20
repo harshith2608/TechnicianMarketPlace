@@ -77,20 +77,43 @@ exports.processRefund = functions
         throw new Error(refundCalculation.reason);
       }
 
+      // Validate Razorpay credentials before attempting refund
+      if (!config.razorpay.keyId || !config.razorpay.keySecret) {
+        console.error('❌ Razorpay credentials missing in Cloud Functions environment');
+        console.error('keyId:', config.razorpay.keyId ? 'SET' : 'MISSING');
+        console.error('keySecret:', config.razorpay.keySecret ? 'SET' : 'MISSING');
+        throw new Error('Razorpay API credentials not configured in Cloud Functions. Contact support.');
+      }
+
+      console.log(`🔑 Razorpay credentials validated`);
+      console.log(`💳 Processing refund: ₹${refundCalculation.customerRefund} for payment ${payment.razorpayPaymentId}`);
+
       // Process refund with Razorpay (3 retries)
-      const razorpayRefund = await retryWithBackoff(
-        async () => {
-          return await razorpay.payments.refund(payment.razorpayPaymentId, {
-            amount: refundCalculation.customerRefund * 100, // Convert to paise
-            notes: {
-              reason,
-              paymentId,
-              refundType: refundCalculation.refundType,
-            },
-          });
-        },
-        config.retry.maxAttempts
-      );
+      let razorpayRefund;
+      try {
+        razorpayRefund = await retryWithBackoff(
+          async () => {
+            console.log(`📤 Calling Razorpay refund API...`);
+            const result = await razorpay.payments.refund(payment.razorpayPaymentId, {
+              amount: refundCalculation.customerRefund * 100, // Convert to paise
+              notes: {
+                reason,
+                paymentId,
+                refundType: refundCalculation.refundType,
+              },
+            });
+            console.log(`✓ Razorpay refund response:`, JSON.stringify(result, null, 2));
+            return result;
+          },
+          config.retry.maxAttempts
+        );
+      } catch (razorpayError) {
+        console.error('❌ Razorpay refund API call failed:');
+        console.error('Error message:', razorpayError.message);
+        console.error('Error code:', razorpayError.code);
+        console.error('Error response:', razorpayError.response?.data || 'No response data');
+        throw new Error(`Razorpay refund failed: ${razorpayError.message}`);
+      }
 
       console.log(`✓ Razorpay refund processed: ${razorpayRefund.id}`);
 
