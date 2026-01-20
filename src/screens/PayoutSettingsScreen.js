@@ -1,20 +1,20 @@
 import { useEffect, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    ScrollView,
-    StyleSheet,
-    Switch,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  ScrollView,
+  StyleSheet,
+  Switch,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 import {
-    requestPayout,
-    selectPaymentLoading,
-    selectPaymentSuccess,
+  requestPayout,
+  selectPaymentLoading,
+  selectPaymentSuccess,
 } from '../redux/paymentSlice';
 import { PAYMENT_CONFIG } from '../utils/paymentConfig';
 
@@ -23,6 +23,7 @@ import { PAYMENT_CONFIG } from '../utils/paymentConfig';
  */
 const PayoutSettingsScreen = ({ navigation }) => {
   const dispatch = useDispatch();
+  const user = useSelector((state) => state.auth.user);
   const [bankDetails, setBankDetails] = useState({
     accountNumber: '',
     confirmAccountNumber: '',
@@ -134,16 +135,45 @@ const PayoutSettingsScreen = ({ navigation }) => {
       return;
     }
 
+    if (!user?.id) {
+      Alert.alert('Error', 'Unable to identify technician');
+      return;
+    }
+
+    // Get available balance to payout
+    const availableBalance = user?.totalEarnings || 0;
+
+    if (availableBalance < PAYMENT_CONFIG.MIN_PAYOUT_THRESHOLD) {
+      Alert.alert(
+        'Insufficient Balance',
+        `Minimum payout amount is ₹${PAYMENT_CONFIG.MIN_PAYOUT_THRESHOLD}. Your current balance is ₹${availableBalance.toFixed(2)}`
+      );
+      return;
+    }
+
     Alert.alert(
       'Request Payout',
-      'Are you sure you want to request a payout now?',
+      `Are you sure you want to request a payout of ₹${availableBalance.toFixed(2)}?`,
       [
         { text: 'Cancel', onPress: () => {} },
         {
           text: 'Confirm',
           onPress: async () => {
             try {
-              await dispatch(requestPayout({})).unwrap();
+              await dispatch(requestPayout({
+                technicianId: user.id,
+                amount: availableBalance,
+                accountType: payoutMethod,
+                accountDetails: payoutMethod === 'bank'
+                  ? {
+                      accountNumber: savedDetails.accountNumber,
+                      ifscCode: savedDetails.ifscCode,
+                      accountHolderName: savedDetails.accountHolderName,
+                    }
+                  : {
+                      upiId: savedDetails.upiId,
+                    },
+              })).unwrap();
               Alert.alert('Success', 'Payout request submitted successfully');
             } catch (err) {
               Alert.alert('Error', err.message || 'Failed to request payout');
@@ -288,6 +318,33 @@ const PayoutSettingsScreen = ({ navigation }) => {
       <View style={styles.header}>
         <Text style={styles.title}>Payout Settings</Text>
         <Text style={styles.subtitle}>Configure where and how to receive your earnings</Text>
+      </View>
+
+      {/* Earnings Overview */}
+      <View style={styles.earningsCard}>
+        <View style={styles.earningRow}>
+          <View style={styles.earningItem}>
+            <Text style={styles.earningLabel}>Total Earnings</Text>
+            <Text style={styles.earningAmount}>₹{(user?.totalEarnings || 0).toFixed(2)}</Text>
+          </View>
+          <View style={styles.earningDivider} />
+          <View style={styles.earningItem}>
+            <Text style={styles.earningLabel}>Available for Withdrawal</Text>
+            <Text style={styles.earningAmount}>₹{Math.max(0, (user?.totalEarnings || 0)).toFixed(2)}</Text>
+            {(user?.totalEarnings || 0) < PAYMENT_CONFIG.MIN_PAYOUT_THRESHOLD && (
+              <Text style={styles.earningNote}>
+                Min: ₹{PAYMENT_CONFIG.MIN_PAYOUT_THRESHOLD}
+              </Text>
+            )}
+          </View>
+        </View>
+        {user?.lastPayoutDate && (
+          <View style={styles.lastPayoutInfo}>
+            <Text style={styles.lastPayoutLabel}>
+              Last Payout: {new Date(user.lastPayoutDate).toLocaleDateString()}
+            </Text>
+          </View>
+        )}
       </View>
 
       {/* Payout Method Selection */}
@@ -718,6 +775,60 @@ const styles = StyleSheet.create({
   },
   spacing: {
     height: 20,
+  },
+  earningsCard: {
+    backgroundColor: '#fff',
+    marginHorizontal: 16,
+    marginVertical: 12,
+    borderRadius: 12,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+    borderLeftWidth: 4,
+    borderLeftColor: '#4CAF50',
+  },
+  earningRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+  },
+  earningItem: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  earningDivider: {
+    width: 1,
+    height: 60,
+    backgroundColor: '#e0e0e0',
+    marginHorizontal: 8,
+  },
+  earningLabel: {
+    fontSize: 12,
+    color: '#999',
+    marginBottom: 4,
+  },
+  earningAmount: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#4CAF50',
+  },
+  earningNote: {
+    fontSize: 10,
+    color: '#ff9800',
+    marginTop: 4,
+  },
+  lastPayoutInfo: {
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#e0e0e0',
+  },
+  lastPayoutLabel: {
+    fontSize: 12,
+    color: '#666',
+    textAlign: 'center',
   },
 });
 
