@@ -1,5 +1,5 @@
-import { collection, doc, getDoc, getDocs, limit, query, updateDoc, where } from 'firebase/firestore';
-import { useCallback, useEffect, useState } from 'react';
+import { collection, doc, getDoc, getDocs, limit, onSnapshot, query, updateDoc, where } from 'firebase/firestore';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
@@ -24,9 +24,20 @@ export const TechnicianBookingsScreen = ({ navigation }) => {
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState('pending'); // 'pending', 'confirmed', 'history'
   const [showMenu, setShowMenu] = useState(false);
+  const unsubscribersRef = useRef([]);
 
   useEffect(() => {
     fetchTechnicianBookings();
+    
+    // Cleanup on unmount
+    return () => {
+      unsubscribersRef.current.forEach(unsubscribe => {
+        if (typeof unsubscribe === 'function') {
+          unsubscribe();
+        }
+      });
+      unsubscribersRef.current = [];
+    };
   }, [user?.id]);
 
   const fetchTechnicianBookings = useCallback(async () => {
@@ -36,11 +47,14 @@ export const TechnicianBookingsScreen = ({ navigation }) => {
       setError(null);
       if (!refreshing) setLoading(true);
 
-      // Direct query on bookings collection instead of nested loop
-      // This is O(1) instead of O(n*m)
-      const bookingsRef = collection(db, 'conversations');
-      
+      // Clear old unsubscribers
+      unsubscribersRef.current.forEach(unsubscribe => {
+        if (typeof unsubscribe === 'function') unsubscribe();
+      });
+      unsubscribersRef.current = [];
+
       // Get all conversations for this user
+      const bookingsRef = collection(db, 'conversations');
       const userConversationsQuery = query(
         bookingsRef,
         where('participants', 'array-contains', user.id)
@@ -48,8 +62,9 @@ export const TechnicianBookingsScreen = ({ navigation }) => {
       const conversationsSnap = await getDocs(userConversationsQuery);
       
       const allBookings = [];
+      let conversationsProcessed = 0;
 
-      // Fetch bookings from each conversation (limited to 20 per conversation for performance)
+      // Set up real-time listeners for each conversation's bookings
       for (const convDoc of conversationsSnap.docs) {
         try {
           const bookingsCollectionRef = collection(db, 'conversations', convDoc.id, 'bookings');
@@ -58,65 +73,89 @@ export const TechnicianBookingsScreen = ({ navigation }) => {
             where('technicianId', '==', user.id),
             limit(20)
           );
-          const bookingsSnap = await getDocs(bookingsQuery);
 
-          for (const bookingDoc of bookingsSnap.docs) {
-            const bookingData = bookingDoc.data();
-            const booking = {
-              id: bookingDoc.id,
-              conversationId: convDoc.id,
-              ...bookingData,
-            };
+          // Set up real-time listener for this conversation's bookings
+          const unsubscribe = onSnapshot(
+            bookingsQuery,
+            async (bookingsSnap) => {
+              const conversationBookings = [];
 
-            // Fetch fresh customer ratings and profile data
-            if (booking.customerId) {
-              try {
-                const customerRef = doc(db, 'users', booking.customerId);
-                const customerSnap = await getDoc(customerRef);
-                if (customerSnap.exists()) {
-                  const customerData = customerSnap.data();
-                  booking.customerName = customerData.name || 'Customer';
-                  booking.customerRating = customerData.rating || 0;
-                  booking.customerReviews = customerData.totalReviews || 0;
-                  booking.customerVerified = customerData.verified || false;
+              for (const bookingDoc of bookingsSnap.docs) {
+                const bookingData = bookingDoc.data();
+                const booking = {
+                  id: bookingDoc.id,
+                  conversationId: convDoc.id,
+                  ...bookingData,
+                };
+
+                // Fetch fresh customer ratings and profile data
+                if (booking.customerId) {
+                  try {
+                    const customerRef = doc(db, 'users', booking.customerId);
+                    const customerSnap = await getDoc(customerRef);
+                    if (customerSnap.exists()) {
+                      const customerData = customerSnap.data();
+                      booking.customerName = customerData.name || 'Customer';
+                      booking.customerRating = customerData.rating || 0;
+                      booking.customerReviews = customerData.totalReviews || 0;
+                      booking.customerVerified = customerData.verified || false;
+                    }
+                  } catch (err) {
+                    console.warn(`Failed to fetch customer data for ${booking.customerId}:`, err);
+                  }
                 }
-              } catch (err) {
-                console.warn(`Failed to fetch customer data for ${booking.customerId}:`, err);
-              }
-            }
 
-            // Fetch fresh service data including ratings
-            if (booking.serviceId) {
-              try {
-                const serviceRef = doc(db, 'services', booking.serviceId);
-                const serviceSnap = await getDoc(serviceRef);
-                if (serviceSnap.exists()) {
-                  const serviceData = serviceSnap.data();
-                  booking.serviceName = serviceData.name || booking.serviceName || 'Service';
-                  booking.serviceRating = serviceData.rating || 0;
-                  booking.serviceReviews = serviceData.reviews || 0;
+                // Fetch fresh service data including ratings
+                if (booking.serviceId) {
+                  try {
+                    const serviceRef = doc(db, 'services', booking.serviceId);
+                    const serviceSnap = await getDoc(serviceRef);
+                    if (serviceSnap.exists()) {
+                      const serviceData = serviceSnap.data();
+                      booking.serviceName = serviceData.name || booking.serviceName || 'Service';
+                      booking.serviceRating = serviceData.rating || 0;
+                      booking.serviceReviews = serviceData.reviews || 0;
+                    }
+                  } catch (err) {
+                    console.warn(`Failed to fetch service data for ${booking.serviceId}:`, err);
+                  }
                 }
-              } catch (err) {
-                console.warn(`Failed to fetch service data for ${booking.serviceId}:`, err);
-              }
-            }
 
-            allBookings.push(booking);
-          }
+                conversationBookings.push(booking);
+              }
+
+              // Update bookings: replace this conversation's bookings
+              setBookings((prevBookings) => {
+                const otherBookings = prevBookings.filter(b => b.conversationId !== convDoc.id);
+                const updated = [...otherBookings, ...conversationBookings];
+                
+                // Sort by scheduled date (newest first)
+                updated.sort((a, b) => {
+                  const dateA = new Date(a.scheduledDate || 0);
+                  const dateB = new Date(b.scheduledDate || 0);
+                  return dateB - dateA;
+                });
+                
+                return updated;
+              });
+            },
+            (error) => {
+              console.error(`Error listening to bookings for conversation ${convDoc.id}:`, error);
+            }
+          );
+
+          unsubscribersRef.current.push(unsubscribe);
+          conversationsProcessed++;
         } catch (err) {
-          console.error(`Error fetching bookings for conversation ${convDoc.id}:`, err);
-          // Continue with other conversations
+          console.error(`Error setting up listener for conversation ${convDoc.id}:`, err);
+          conversationsProcessed++;
         }
       }
 
-      // Sort by scheduled date (newest first)
-      allBookings.sort((a, b) => {
-        const dateA = new Date(a.scheduledDate || 0);
-        const dateB = new Date(b.scheduledDate || 0);
-        return dateB - dateA;
-      });
-
-      setBookings(allBookings);
+      // If no conversations found, just update loading state
+      if (conversationsProcessed === 0 || conversationsSnap.empty) {
+        setLoading(false);
+      }
     } catch (error) {
       console.error('Error fetching technician bookings:', error);
       setError(error.message || 'Failed to load bookings');
@@ -124,7 +163,7 @@ export const TechnicianBookingsScreen = ({ navigation }) => {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [user?.id]);
+  }, [user?.id, refreshing]);
 
   // Handle refresh action
   const handleRefresh = useCallback(() => {

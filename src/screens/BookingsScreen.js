@@ -1,5 +1,5 @@
 import { collection, doc, getDoc, getDocs, query, updateDoc, where } from 'firebase/firestore';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
@@ -22,12 +22,23 @@ export const BookingsScreen = ({ navigation }) => {
   const [refreshing, setRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState('upcoming'); // 'upcoming' or 'past'
   const [showMenu, setShowMenu] = useState(false);
+  const unsubscribersRef = useRef([]);
 
   useEffect(() => {
     fetchBookings();
+    
+    // Cleanup on unmount
+    return () => {
+      unsubscribersRef.current.forEach(unsubscribe => {
+        if (typeof unsubscribe === 'function') {
+          unsubscribe();
+        }
+      });
+      unsubscribersRef.current = [];
+    };
   }, [user?.id]);
 
-  const fetchBookings = async () => {
+  const fetchBookings = useCallback(async () => {
     try {
       // Don't fetch if user is not loaded yet
       if (!user?.id) {
@@ -36,7 +47,12 @@ export const BookingsScreen = ({ navigation }) => {
       }
 
       if (!refreshing) setLoading(true);
-      const allBookings = [];
+
+      // Clear old unsubscribers
+      unsubscribersRef.current.forEach(unsubscribe => {
+        if (typeof unsubscribe === 'function') unsubscribe();
+      });
+      unsubscribersRef.current = [];
 
       // Get all conversations for the user
       const conversationsRef = collection(db, 'conversations');
@@ -46,69 +62,92 @@ export const BookingsScreen = ({ navigation }) => {
       );
       const conversationsSnapshot = await getDocs(conversationsQuery);
 
-      // For each conversation, get bookings
+      let conversationsProcessed = 0;
+
+      // For each conversation, set up real-time listener for bookings
       for (const convDoc of conversationsSnapshot.docs) {
-        const bookingsRef = collection(db, 'conversations', convDoc.id, 'bookings');
-        const bookingsSnapshot = await getDocs(bookingsRef);
+        try {
+          const bookingsRef = collection(db, 'conversations', convDoc.id, 'bookings');
+          
+          // Set up real-time listener for this conversation's bookings
+          const unsubscribe = onSnapshot(
+            bookingsRef,
+            async (bookingsSnapshot) => {
+              const conversationBookings = [];
 
-        for (const bookingDoc of bookingsSnapshot.docs) {
-          const bookingData = bookingDoc.data();
-          const isCustomer = bookingData.customerId === user.id;
-          const isTechnician = bookingData.technicianId === user.id;
+              for (const bookingDoc of bookingsSnapshot.docs) {
+                const bookingData = bookingDoc.data();
+                const isCustomer = bookingData.customerId === user.id;
+                const isTechnician = bookingData.technicianId === user.id;
 
-          // Only show relevant bookings
-          if (isCustomer || isTechnician) {
-            allBookings.push({
-              id: bookingDoc.id,
-              conversationId: convDoc.id,
-              ...bookingData,
-              isCustomer,
-              isTechnician,
-            });
-          }
-        }
-      }
+                // Only show relevant bookings
+                if (isCustomer || isTechnician) {
+                  const booking = {
+                    id: bookingDoc.id,
+                    conversationId: convDoc.id,
+                    ...bookingData,
+                    isCustomer,
+                    isTechnician,
+                  };
 
-      // Sort by scheduled date
-      allBookings.sort((a, b) => {
-        return new Date(b.scheduledDate) - new Date(a.scheduledDate);
-      });
+                  // Fetch service name if not already stored
+                  if (!booking.serviceName && booking.serviceId) {
+                    try {
+                      const serviceRef = doc(db, 'services', booking.serviceId);
+                      const serviceDoc = await getDoc(serviceRef);
+                      if (serviceDoc.exists()) {
+                        booking.serviceName = serviceDoc.data().name || 'Service Booking';
+                      } else {
+                        booking.serviceName = 'Service Booking';
+                      }
+                    } catch (err) {
+                      booking.serviceName = 'Service Booking';
+                    }
+                  } else if (!booking.serviceName) {
+                    booking.serviceName = 'Service Booking';
+                  }
 
-      // Fetch service names for all bookings
-      for (let i = 0; i < allBookings.length; i++) {
-        // First check if serviceName is already stored in booking
-        if (allBookings[i].serviceName) {
-          // Already has service name, keep it
-          continue;
-        }
-        
-        // If not, try to fetch from services collection
-        if (allBookings[i].serviceId) {
-          try {
-            const serviceRef = doc(db, 'services', allBookings[i].serviceId);
-            const serviceDoc = await getDoc(serviceRef);
-            if (serviceDoc.exists()) {
-              allBookings[i].serviceName = serviceDoc.data().name || 'Service Booking';
-            } else {
-              allBookings[i].serviceName = 'Service Booking';
+                  conversationBookings.push(booking);
+                }
+              }
+
+              // Update bookings: replace this conversation's bookings
+              setBookings((prevBookings) => {
+                const otherBookings = prevBookings.filter(b => b.conversationId !== convDoc.id);
+                const updated = [...otherBookings, ...conversationBookings];
+                
+                // Sort by scheduled date
+                updated.sort((a, b) => {
+                  return new Date(b.scheduledDate) - new Date(a.scheduledDate);
+                });
+                
+                return updated;
+              });
+            },
+            (error) => {
+              console.error(`Error listening to bookings for conversation ${convDoc.id}:`, error);
             }
-          } catch (err) {
-            // Silently fail - service name not critical
-            allBookings[i].serviceName = 'Service Booking';
-          }
-        } else {
-          allBookings[i].serviceName = 'Service Booking';
+          );
+
+          unsubscribersRef.current.push(unsubscribe);
+          conversationsProcessed++;
+        } catch (err) {
+          console.error(`Error setting up listener for conversation ${convDoc.id}:`, err);
+          conversationsProcessed++;
         }
       }
 
-      setBookings(allBookings);
+      // If no conversations found, just update loading state
+      if (conversationsProcessed === 0 || conversationsSnapshot.empty) {
+        setLoading(false);
+      }
     } catch (error) {
       console.error('Error fetching bookings:', error);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, [user?.id, refreshing]);
 
   const getFilteredBookings = () => {
     const now = new Date();
