@@ -15,15 +15,33 @@ let cryptoAvailable = false;
 try {
   CryptoJS = require('crypto-js');
   // Test if crypto actually works by trying a simple operation
-  const testEncrypt = CryptoJS.AES.encrypt('test', 'key');
-  if (testEncrypt && testEncrypt.toString) {
-    cryptoAvailable = true;
+  // Suppress console during test to avoid logging errors from native crypto module
+  const originalWarn = console.warn;
+  const originalError = console.error;
+  const originalLog = console.log;
+  console.warn = () => {};
+  console.error = () => {};
+  console.log = () => {};
+  
+  try {
+    const testEncrypt = CryptoJS.AES.encrypt('test', 'key');
+    if (testEncrypt && testEncrypt.toString) {
+      cryptoAvailable = true;
+    }
+  } finally {
+    // Restore console
+    console.warn = originalWarn;
+    console.error = originalError;
+    console.log = originalLog;
+  }
+  
+  if (cryptoAvailable) {
     console.log('✅ crypto-js available and working');
   } else {
     console.warn('⚠️ crypto-js loaded but not working properly');
   }
 } catch (e) {
-  console.warn('⚠️ crypto-js not available or failed test:', e.message);
+  console.warn('⚠️ crypto-js not available or failed test');
   console.warn('💡 Will store payout data without encryption');
 }
 
