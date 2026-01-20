@@ -145,7 +145,8 @@ export const verifyPaymentSignature = (paymentResponse) => {
 export const updatePaymentNotes = async (paymentId, notes) => {
   try {
     // Skip for mock payments
-    if (paymentId && paymentId.startsWith('pay_') && paymentId.length < 20) {
+    // Mock payments are specifically marked with 'MOCK_' prefix
+    if (paymentId && paymentId.includes('MOCK_')) {
       console.log('✓ Skipping notes update for mock payment:', paymentId);
       return { paymentId, notes };
     }
@@ -180,8 +181,8 @@ export const updatePaymentNotes = async (paymentId, notes) => {
 export const capturePayment = async (paymentId, amount) => {
   try {
     // Check if this is a mock payment (for Expo Go testing)
-    // Mock payment IDs start with "pay_" and are relatively short
-    const isMockPayment = paymentId && paymentId.startsWith('pay_') && paymentId.length < 20;
+    // Mock payments are specifically marked with 'MOCK_' prefix
+    const isMockPayment = paymentId && paymentId.includes('MOCK_');
     
     if (isMockPayment) {
       console.log('✓ Skipping API capture for mock payment:', paymentId);
