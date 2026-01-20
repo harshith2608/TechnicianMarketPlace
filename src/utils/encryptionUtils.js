@@ -14,10 +14,17 @@ let cryptoAvailable = false;
 
 try {
   CryptoJS = require('crypto-js');
-  cryptoAvailable = true;
+  // Test if crypto actually works by trying a simple operation
+  const testEncrypt = CryptoJS.AES.encrypt('test', 'key');
+  if (testEncrypt && testEncrypt.toString) {
+    cryptoAvailable = true;
+    console.log('✅ crypto-js available and working');
+  } else {
+    console.warn('⚠️ crypto-js loaded but not working properly');
+  }
 } catch (e) {
-  console.warn('⚠️ crypto-js not available:', e.message);
-  console.warn('💡 Will store payout data without encryption (add to .env to enable)');
+  console.warn('⚠️ crypto-js not available or failed test:', e.message);
+  console.warn('💡 Will store payout data without encryption');
 }
 
 // Encryption key - In production, this should be securely managed
@@ -85,8 +92,7 @@ const encryptPayoutData = (data) => {
 
     return encrypted;
   } catch (error) {
-    console.error('❌ Encryption failed:', error.message);
-    console.log('⚠️ Falling back to unencrypted storage');
+    console.log('⚠️ Encryption failed, using fallback:', error.message);
     return {
       ...data,
       _encrypted: false,
@@ -173,8 +179,7 @@ const decryptPayoutData = (encryptedData) => {
 
     return decrypted;
   } catch (error) {
-    console.error('❌ Decryption failed:', error.message);
-    console.log('⚠️ Returning empty fields');
+    console.log('⚠️ Decryption failed:', error.message);
     // Return empty decrypted data on error
     return {
       accountNumber: '',
