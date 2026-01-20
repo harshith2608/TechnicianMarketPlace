@@ -88,10 +88,15 @@ export const TechnicianBookingsScreen = ({ navigation }) => {
           const unsubscribe = onSnapshot(
             bookingsQuery,
             async (bookingsSnap) => {
+              console.log(`🔔 onSnapshot triggered for conversation ${convDoc.id.substring(0, 8)}`);
+              console.log(`   Raw snapshot count: ${bookingsSnap.size} documents`);
+              
               const conversationBookings = [];
 
               for (const bookingDoc of bookingsSnap.docs) {
                 const bookingData = bookingDoc.data();
+                console.log(`   📋 Document ${bookingDoc.id.substring(0, 8)}: status=${bookingData.status}, technicianId=${bookingData.technicianId}`);
+                
                 const booking = {
                   id: bookingDoc.id,
                   conversationId: convDoc.id,
@@ -188,19 +193,30 @@ export const TechnicianBookingsScreen = ({ navigation }) => {
 
   const getFilteredBookings = () => {
     const now = new Date();
+    console.log(`📊 Filtering bookings for tab: ${activeTab}`);
+    console.log(`   Total bookings: ${bookings.length}`);
+    bookings.forEach(b => {
+      console.log(`   └─ Booking ${b.id.substring(0, 8)}: status=${b.status}, scheduled=${new Date(b.scheduledDate).toLocaleDateString()}`);
+    });
+    
     if (activeTab === 'pending') {
-      return bookings.filter(b => b.status === 'pending');
+      const filtered = bookings.filter(b => b.status === 'pending');
+      console.log(`   ✓ Pending bookings: ${filtered.length}`);
+      return filtered;
     } else if (activeTab === 'confirmed') {
-      return bookings.filter(
+      const filtered = bookings.filter(
         b => b.status === 'confirmed' && new Date(b.scheduledDate) >= now
       );
+      console.log(`   ✓ Confirmed bookings: ${filtered.length}`);
+      return filtered;
     } else {
       // History: completed or past confirmed bookings
-      return bookings.filter(
+      const filtered = bookings.filter(
         b => b.status === 'completed' || b.status === 'cancelled' || (b.status === 'confirmed' && new Date(b.scheduledDate) < now)
       );
+      console.log(`   ✓ History bookings: ${filtered.length}`);
+      return filtered;
     }
-  };
 
   const formatDate = (dateString) => {
     try {

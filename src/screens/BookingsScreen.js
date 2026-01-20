@@ -166,10 +166,20 @@ export const BookingsScreen = ({ navigation }) => {
 
   const getFilteredBookings = () => {
     const now = new Date();
+    console.log(`📊 Filtering bookings for tab: ${activeTab}`);
+    console.log(`   Total bookings: ${bookings.length}`);
+    bookings.forEach(b => {
+      console.log(`   └─ Booking ${b.id.substring(0, 8)}: status=${b.status}, scheduled=${new Date(b.scheduledDate).toLocaleDateString()}`);
+    });
+    
     if (activeTab === 'upcoming') {
-      return bookings.filter(b => new Date(b.scheduledDate) >= now);
+      const filtered = bookings.filter(b => new Date(b.scheduledDate) >= now);
+      console.log(`   ✓ Upcoming bookings: ${filtered.length}`);
+      return filtered;
     } else {
-      return bookings.filter(b => new Date(b.scheduledDate) < now);
+      const filtered = bookings.filter(b => new Date(b.scheduledDate) < now);
+      console.log(`   ✓ Past bookings: ${filtered.length}`);
+      return filtered;
     }
   };
 
@@ -214,6 +224,8 @@ export const BookingsScreen = ({ navigation }) => {
           style: 'destructive',
           onPress: async () => {
             try {
+              console.log(`🚫 Cancelling booking: ${booking.id.substring(0, 8)} in conversation ${booking.conversationId.substring(0, 8)}`);
+              
               // Show loading indicator
               Alert.alert('Processing', 'Cancelling booking and processing refund...', [
                 { text: 'Wait', disabled: true }
@@ -224,11 +236,15 @@ export const BookingsScreen = ({ navigation }) => {
               const bookingSnap = await getDoc(bookingRef);
               const bookingData = bookingSnap.data();
               
+              console.log(`   Before update: status=${bookingData?.status}`);
+              
               // Update booking status to cancelled
               await updateDoc(bookingRef, {
                 status: 'cancelled',
                 cancelledAt: new Date().toISOString(),
               });
+              
+              console.log(`   ✅ After update: status set to cancelled`);
 
               // Process refund if payment exists
               if (bookingData?.paymentId) {
