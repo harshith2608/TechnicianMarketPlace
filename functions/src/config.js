@@ -21,7 +21,7 @@ module.exports = {
 
   // Refund Configuration
   refund: {
-    fullRefundWindowHours: 3, // 100% refund within 3 hours
+    fullRefundWindowHours: 4, // 100% refund within 4 hours
     partialRefundWindowHours: 1, // 80% refund within 1 hour before service
     refundPercentage: 0.80, // 80% after window
     cancellationFeePercent: 0.20, // 20% fee split
