@@ -22,6 +22,7 @@ export const TechnicianBookingsScreen = ({ navigation }) => {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState('pending'); // 'pending', 'confirmed', 'history'
+  const [showMenu, setShowMenu] = useState(false);
 
   useEffect(() => {
     fetchTechnicianBookings();
@@ -354,7 +355,54 @@ export const TechnicianBookingsScreen = ({ navigation }) => {
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <View style={styles.header}>
         <Text style={styles.headerTitle}>My Bookings</Text>
+        <TouchableOpacity
+          style={styles.menuIconButton}
+          onPress={() => setShowMenu(!showMenu)}
+        >
+          <Text style={styles.menuIcon}>☰</Text>
+        </TouchableOpacity>
       </View>
+
+      {showMenu && (
+        <View style={styles.menu}>
+          <TouchableOpacity 
+            style={styles.menuItem}
+            onPress={() => {
+              navigation.navigate('Home');
+              setShowMenu(false);
+            }}
+          >
+            <Text style={styles.menuItemText}>🏠 Home</Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={styles.menuItem}
+            onPress={() => {
+              navigation.navigate('Messages');
+              setShowMenu(false);
+            }}
+          >
+            <Text style={styles.menuItemText}>💬 Messages</Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={styles.menuItem}
+            onPress={() => {
+              navigation.navigate('MyServices');
+              setShowMenu(false);
+            }}
+          >
+            <Text style={styles.menuItemText}>📋 My Services</Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={styles.menuItem}
+            onPress={() => {
+              navigation.navigate('Profile');
+              setShowMenu(false);
+            }}
+          >
+            <Text style={styles.menuItemText}>✏️ Edit Profile</Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
       <View style={styles.tabContainer}>
         <TouchableOpacity
@@ -441,6 +489,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#f5f5f5',
   },
   header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     backgroundColor: '#fff',
     paddingHorizontal: 15,
     paddingVertical: 15,
@@ -451,6 +502,34 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: 'bold',
     color: '#333',
+    flex: 1,
+  },
+  menuIconButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  menuIcon: {
+    fontSize: 24,
+    color: '#333',
+  },
+  menu: {
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
+    paddingVertical: 5,
+  },
+  menuItem: {
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  menuItemText: {
+    fontSize: 16,
+    color: '#333',
+    fontWeight: '500',
   },
   tabContainer: {
     flexDirection: 'row',
