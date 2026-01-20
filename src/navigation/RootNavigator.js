@@ -207,6 +207,13 @@ export const RootNavigator = () => {
                 headerLeft: () => null,
               }}
             />
+            <Stack.Screen
+              name="PayoutSettings"
+              component={PayoutSettingsScreen}
+              options={{
+                headerTitle: 'Earnings & Payouts',
+              }}
+            />
               </Stack.Group>
             )}
           </>
