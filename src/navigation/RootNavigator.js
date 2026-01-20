@@ -17,6 +17,7 @@ import { PaymentReleasedScreen } from '../screens/PaymentReleasedScreen';
 import PaymentScreen from '../screens/PaymentScreen';
 import { PaymentSuccessScreen } from '../screens/PaymentSuccessScreen';
 import { PaymentVerifiedScreen } from '../screens/PaymentVerifiedScreen';
+import PayoutSettingsScreen from '../screens/PayoutSettingsScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
 import { RegisterScreen } from '../screens/RegisterScreen';
 import { ServiceCompletionScreen } from '../screens/ServiceCompletionScreen';
