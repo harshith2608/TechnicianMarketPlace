@@ -1,3 +1,4 @@
+import { useFocusEffect } from '@react-navigation/native';
 import { collection, doc, getDoc, getDocs, query, updateDoc, where } from 'firebase/firestore';
 import { useEffect, useRef, useState } from 'react';
 import {
@@ -37,6 +38,15 @@ export const BookingsScreen = ({ navigation }) => {
       unsubscribersRef.current = [];
     };
   }, [user?.id]);
+
+  // Refresh bookings when screen is focused
+  useFocusEffect(
+    useCallback(() => {
+      console.log('📱 BookingsScreen focused - refreshing data');
+      setRefreshing(true);
+      fetchBookings();
+    }, [fetchBookings])
+  );
 
   const fetchBookings = useCallback(async () => {
     try {
@@ -112,6 +122,11 @@ export const BookingsScreen = ({ navigation }) => {
               }
 
               // Update bookings: replace this conversation's bookings
+              console.log(`🔄 Real-time update for conversation ${convDoc.id.substring(0, 8)}: ${conversationBookings.length} bookings`);
+              conversationBookings.forEach(b => {
+                console.log(`  └─ Booking ${b.id.substring(0, 8)}: ${b.status}`);
+              });
+              
               setBookings((prevBookings) => {
                 const otherBookings = prevBookings.filter(b => b.conversationId !== convDoc.id);
                 const updated = [...otherBookings, ...conversationBookings];
