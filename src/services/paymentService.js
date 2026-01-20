@@ -194,6 +194,8 @@ export const capturePayment = async (paymentId, amount) => {
       };
     }
 
+    console.log('💳 Attempting to capture payment:', { paymentId, amount, amountInPaise: Math.round(amount * 100) });
+
     const captureResponse = await razorpayAPI.post(
       `/payments/${paymentId}/capture`,
       {
@@ -201,9 +203,13 @@ export const capturePayment = async (paymentId, amount) => {
       }
     );
 
+    console.log('💳 Capture response:', captureResponse.data);
+
     if (captureResponse.data.status !== 'captured') {
-      throw new Error('Payment capture failed');
+      throw new Error(`Payment status is ${captureResponse.data.status}, expected 'captured'`);
     }
+
+    console.log('✅ Payment captured successfully:', paymentId);
 
     return {
       paymentId: captureResponse.data.id,
@@ -212,7 +218,8 @@ export const capturePayment = async (paymentId, amount) => {
       capturedAt: new Date(),
     };
   } catch (error) {
-    console.error('Error capturing payment:', error);
+    console.error('❌ Error capturing payment:', error.message);
+    console.error('❌ Full error:', error);
     throw new Error(`Payment capture failed: ${error.message}`);
   }
 };
