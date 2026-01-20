@@ -38,7 +38,8 @@ module.exports = {
     '/.expo/',
   ],
   transformIgnorePatterns: [
-    'node_modules/(?!((react-native|@react-native-async-storage|@react-navigation|expo|firebase)/)?)',
+    'node_modules/(?!((react-native|@react-native-async-storage|@react-navigation|firebase|crypto-js|@babel)/)?)',
+    'node_modules/expo',
   ],
   testTimeout: 30000, // Increased timeout for Firebase operations
   forceExit: true, // Force Jest to exit after tests (needed for gRPC connections)

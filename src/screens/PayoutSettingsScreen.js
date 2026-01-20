@@ -1,4 +1,4 @@
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -63,12 +63,16 @@ const PayoutSettingsScreen = ({ navigation }) => {
       const docSnap = await getDoc(technicianDocRef);
 
       if (docSnap.exists() && docSnap.data().payoutSettings) {
-        const settings = docSnap.data().payoutSettings;
+        const encryptedSettings = docSnap.data().payoutSettings;
+        
+        // Decrypt the settings
+        const settings = decryptPayoutData(encryptedSettings);
+        
         setSavedDetails(settings);
         setPayoutMethod(settings.method || 'bank');
         setAutoPayoutEnabled(settings.autoPayoutEnabled || false);
 
-        // Pre-fill form with saved data
+        // Pre-fill form with decrypted data
         if (settings.method === 'bank') {
           setBankDetails({
             accountNumber: settings.accountNumber || '',
@@ -89,7 +93,7 @@ const PayoutSettingsScreen = ({ navigation }) => {
       }
     } catch (err) {
       console.error('Error loading payout details:', err);
-      Alert.alert('Error', 'Failed to load payout settings');
+      Alert.alert('Error', 'Failed to load payout settings. Details may be corrupted.');
     } finally {
       setIsLoading(false);
     }
@@ -154,7 +158,7 @@ const PayoutSettingsScreen = ({ navigation }) => {
   };
 
   /**
-   * Save payout settings to Firestore
+   * Save payout settings to Firestore (with encryption)
    */
   const handleSaveSettings = async () => {
     const isValid = payoutMethod === 'bank' ? validateBankDetails() : validateUPI();
@@ -184,13 +188,16 @@ const PayoutSettingsScreen = ({ navigation }) => {
         updatedAt: new Date().toISOString(),
       };
 
-      // Save to Firestore
+      // Encrypt sensitive data before saving to Firestore
+      const encryptedData = encryptPayoutData(payoutData);
+
+      // Save encrypted data to Firestore
       const technicianDocRef = doc(db, 'users', user.id);
-      await setDoc(technicianDocRef, { payoutSettings: payoutData }, { merge: true });
+      await setDoc(technicianDocRef, { payoutSettings: encryptedData }, { merge: true });
 
       setSavedDetails(payoutData);
       setIsEditMode(false);
-      Alert.alert('Success', 'Payout settings saved successfully');
+      Alert.alert('Success', 'Payout settings saved securely (encrypted)');
     } catch (err) {
       console.error('Error saving payout settings:', err);
       Alert.alert('Error', err.message || 'Failed to save payout settings');
@@ -663,7 +670,7 @@ const PayoutSettingsScreen = ({ navigation }) => {
             No, we don't charge any fees for processing payouts to your account.
           </Text>
         </View>
-          </View>
+      </View>
         </>
       )}
 
