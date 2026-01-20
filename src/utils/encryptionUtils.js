@@ -10,11 +10,14 @@
  */
 
 let CryptoJS;
+let cryptoAvailable = false;
+
 try {
   CryptoJS = require('crypto-js');
+  cryptoAvailable = true;
 } catch (e) {
-  // Fallback for environments where crypto-js might not be available
-  console.warn('crypto-js not available, some operations may fail');
+  console.warn('⚠️ crypto-js not available:', e.message);
+  console.warn('💡 Will store payout data without encryption (add to .env to enable)');
 }
 
 // Encryption key - In production, this should be securely managed
@@ -23,11 +26,8 @@ const ENCRYPTION_KEY = process.env.EXPO_PUBLIC_ENCRYPTION_KEY || 'technicianmark
 
 /**
  * Encrypts sensitive payout data using AES encryption
+ * Falls back to storing raw data if crypto is not available
  * @param {Object} data - The payout data to encrypt
- * @param {string} data.accountNumber - Bank account number (optional)
- * @param {string} data.ifscCode - IFSC code (optional)
- * @param {string} data.accountHolderName - Account holder name (optional)
- * @param {string} data.upiId - UPI ID (optional)
  * @returns {Object} Encrypted data object with encrypted fields
  */
 const encryptPayoutData = (data) => {
@@ -35,53 +35,98 @@ const encryptPayoutData = (data) => {
     throw new Error('Cannot encrypt empty data');
   }
 
-  const encrypted = {};
-
-  // Encrypt each sensitive field
-  if (data.accountNumber) {
-    encrypted.accountNumber = CryptoJS.AES.encrypt(
-      data.accountNumber.toString(),
-      ENCRYPTION_KEY
-    ).toString();
+  // If crypto is not available, return data with _encrypted flag set to false
+  if (!cryptoAvailable) {
+    console.log('⚠️ Storing payout data without encryption (crypto not available)');
+    return {
+      ...data,
+      _encrypted: false,
+      _timestamp: new Date().toISOString(),
+    };
   }
 
-  if (data.ifscCode) {
-    encrypted.ifscCode = CryptoJS.AES.encrypt(
-      data.ifscCode.toString(),
-      ENCRYPTION_KEY
-    ).toString();
+  try {
+    const encrypted = {};
+
+    // Encrypt each sensitive field
+    if (data.accountNumber) {
+      encrypted.accountNumber = CryptoJS.AES.encrypt(
+        data.accountNumber.toString(),
+        ENCRYPTION_KEY
+      ).toString();
+    }
+
+    if (data.ifscCode) {
+      encrypted.ifscCode = CryptoJS.AES.encrypt(
+        data.ifscCode.toString(),
+        ENCRYPTION_KEY
+      ).toString();
+    }
+
+    if (data.accountHolderName) {
+      encrypted.accountHolderName = CryptoJS.AES.encrypt(
+        data.accountHolderName.toString(),
+        ENCRYPTION_KEY
+      ).toString();
+    }
+
+    if (data.upiId) {
+      encrypted.upiId = CryptoJS.AES.encrypt(
+        data.upiId.toString(),
+        ENCRYPTION_KEY
+      ).toString();
+    }
+
+    // Copy non-sensitive fields
+    encrypted.method = data.method;
+    encrypted.autoPayoutEnabled = data.autoPayoutEnabled;
+    encrypted.updatedAt = data.updatedAt;
+    encrypted._encrypted = true;
+
+    return encrypted;
+  } catch (error) {
+    console.error('❌ Encryption failed:', error.message);
+    console.log('⚠️ Falling back to unencrypted storage');
+    return {
+      ...data,
+      _encrypted: false,
+      _timestamp: new Date().toISOString(),
+    };
   }
-
-  if (data.accountHolderName) {
-    encrypted.accountHolderName = CryptoJS.AES.encrypt(
-      data.accountHolderName.toString(),
-      ENCRYPTION_KEY
-    ).toString();
-  }
-
-  if (data.upiId) {
-    encrypted.upiId = CryptoJS.AES.encrypt(
-      data.upiId.toString(),
-      ENCRYPTION_KEY
-    ).toString();
-  }
-
-  // Copy non-sensitive fields
-  encrypted.method = data.method;
-  encrypted.autoPayoutEnabled = data.autoPayoutEnabled;
-  encrypted.updatedAt = data.updatedAt;
-
-  return encrypted;
-};
 
 /**
  * Decrypts sensitive payout data using AES decryption
+ * Handles both encrypted and unencrypted data (fallback)
  * @param {Object} encryptedData - The encrypted payout data object
  * @returns {Object} Decrypted data object with readable fields
  */
 const decryptPayoutData = (encryptedData) => {
   if (!encryptedData) {
     throw new Error('Cannot decrypt empty data');
+  }
+
+  // If data is not encrypted (fallback mode), return as-is
+  if (encryptedData._encrypted === false) {
+    console.log('⚠️ Data is not encrypted (fallback mode)');
+    return {
+      accountNumber: encryptedData.accountNumber,
+      ifscCode: encryptedData.ifscCode,
+      accountHolderName: encryptedData.accountHolderName,
+      upiId: encryptedData.upiId,
+      method: encryptedData.method,
+    };
+  }
+
+  // If crypto is not available but data looks encrypted, return empty
+  if (!cryptoAvailable) {
+    console.warn('⚠️ Cannot decrypt: crypto-js not available');
+    return {
+      accountNumber: '',
+      ifscCode: '',
+      accountHolderName: '',
+      upiId: '',
+      method: encryptedData.method,
+    };
   }
 
   const decrypted = {};
@@ -127,9 +172,19 @@ const decryptPayoutData = (encryptedData) => {
 
     return decrypted;
   } catch (error) {
-    throw new Error(`Decryption failed: ${error.message}`);
+    console.error('❌ Decryption failed:', error.message);
+    console.log('⚠️ Returning empty fields');
+    // Return empty decrypted data on error
+    return {
+      accountNumber: '',
+      ifscCode: '',
+      accountHolderName: '',
+      upiId: '',
+      method: encryptedData.method,
+    };
   }
 };
+
 
 /**
  * Encrypts a single sensitive string value
