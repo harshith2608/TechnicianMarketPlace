@@ -5,7 +5,6 @@ import {
   Alert,
   ScrollView,
   StyleSheet,
-  Switch,
   Text,
   TextInput,
   TouchableOpacity,
@@ -38,7 +37,6 @@ const PayoutSettingsScreen = ({ navigation }) => {
     upiId: '',
   });
   const [payoutMethod, setPayoutMethod] = useState('bank'); // bank or upi
-  const [autoPayoutEnabled, setAutoPayoutEnabled] = useState(false);
   const [errors, setErrors] = useState({});
   const [savedDetails, setSavedDetails] = useState(null);
 
@@ -71,7 +69,6 @@ const PayoutSettingsScreen = ({ navigation }) => {
         
         setSavedDetails(settings);
         setPayoutMethod(settings.method || 'bank');
-        setAutoPayoutEnabled(settings.autoPayoutEnabled || false);
 
         // Pre-fill form with decrypted data
         if (settings.method === 'bank') {
@@ -185,7 +182,6 @@ const PayoutSettingsScreen = ({ navigation }) => {
           : {
               upiId: bankDetails.upiId,
             }),
-        autoPayoutEnabled,
         updatedAt: new Date().toISOString(),
       };
 
@@ -487,13 +483,6 @@ const PayoutSettingsScreen = ({ navigation }) => {
                 </View>
               )}
 
-              <View style={styles.viewDetail}>
-                <Text style={styles.viewLabel}>Automatic Payouts</Text>
-                <Text style={styles.viewValue}>
-                  {savedDetails.autoPayoutEnabled ? '✓ Enabled' : '✗ Disabled'}
-                </Text>
-              </View>
-
               {savedDetails.updatedAt && (
                 <Text style={styles.updatedText}>
                   Last updated: {new Date(savedDetails.updatedAt).toLocaleDateString()}
@@ -557,31 +546,6 @@ const PayoutSettingsScreen = ({ navigation }) => {
               {/* Form */}
               <View style={styles.card}>
                 {payoutMethod === 'bank' ? renderBankForm() : renderUPIForm()}
-              </View>
-
-              {/* Auto Payout Option */}
-              <View style={styles.card}>
-                <View style={styles.autoPayoutHeader}>
-                  <View>
-                    <Text style={styles.autoPayoutTitle}>Automatic Payouts</Text>
-                    <Text style={styles.autoPayoutDesc}>
-                      Automatically process payout when balance reaches ₹{PAYMENT_CONFIG.MIN_PAYOUT_THRESHOLD}
-                    </Text>
-                  </View>
-                  <Switch
-                    value={autoPayoutEnabled}
-                    onValueChange={setAutoPayoutEnabled}
-                    disabled={isLoading || loading}
-                  />
-                </View>
-
-                {autoPayoutEnabled && (
-                  <View style={styles.autoPayoutInfo}>
-                    <Text style={styles.infoText}>
-                      ✓ Payouts will be processed {PAYMENT_CONFIG.PAYOUT_FREQUENCY}ly automatically
-                    </Text>
-                  </View>
-                )}
               </View>
 
               {/* Save/Cancel Buttons */}
@@ -807,28 +771,7 @@ const styles = StyleSheet.create({
     color: '#666',
     marginBottom: 4,
   },
-  autoPayoutHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  autoPayoutTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#1a1a1a',
-    marginBottom: 4,
-  },
-  autoPayoutDesc: {
-    fontSize: 12,
-    color: '#999',
-    marginBottom: 4,
-  },
-  autoPayoutInfo: {
-    marginTop: 12,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#eee',
-  },
+
   infoCard: {
     backgroundColor: '#E8F5E9',
     marginHorizontal: 16,
