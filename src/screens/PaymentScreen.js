@@ -3,13 +3,13 @@ import {
     ActivityIndicator,
     Alert,
     Dimensions,
-    SafeAreaView,
     ScrollView,
     StyleSheet,
     Text,
     TouchableOpacity,
     View
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 // Use mock for Expo Go simulator, real package for native builds
 let RazorpayCheckout;
 try {

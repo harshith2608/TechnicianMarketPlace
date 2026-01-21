@@ -21,6 +21,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useDispatch, useSelector } from 'react-redux';
 import OTPInput from '../components/OTPInput';
 import { db } from '../config/firebase';
+import { refreshUserData, selectUser } from '../redux/authSlice';
 import { clearSuccess, regenerateOTP, selectCompletionError, selectCompletionLoading, selectCompletionSuccess, selectOTPAttempts, verifyServiceCompletionOTP } from '../redux/serviceCompletionSlice';
 
 const MAX_ATTEMPTS = 3;
@@ -32,6 +33,9 @@ const OTPVerificationScreen = () => {
   const insets = useSafeAreaInsets();
 
   const { bookingId, conversationId, customerId, amount } = route.params || {};
+  
+  // Get current user from Redux
+  const user = useSelector(selectUser);
   
   // Technician always fetches from Firestore
   const loading = useSelector(selectCompletionLoading);
@@ -54,6 +58,11 @@ const OTPVerificationScreen = () => {
   // Handle successful verification
   useEffect(() => {
     if (success) {
+      // Refresh technician earnings after OTP verification
+      if (user?.id) {
+        dispatch(refreshUserData({ userId: user.id }));
+      }
+      
       // Navigate to success screen after a brief delay
       setTimeout(() => {
         navigation.navigate('PaymentVerified', {
@@ -64,7 +73,7 @@ const OTPVerificationScreen = () => {
         });
       }, 1500);
     }
-  }, [success, navigation, completionId, bookingId, conversationId, amount]);
+  }, [success, navigation, completionId, bookingId, conversationId, amount, dispatch, user?.id]);
 
   const handleOTPComplete = (otp) => {
     setEnteredOTP(otp);
@@ -217,6 +226,25 @@ const OTPVerificationScreen = () => {
     );
   };
 
+  const handleGoHome = () => {
+    Alert.alert(
+      'Go to Home',
+      'Are you sure you want to go home? You can return to this OTP verification later.',
+      [
+        { text: 'Cancel', onPress: () => {} },
+        {
+          text: 'Go Home',
+          onPress: () => {
+            navigation.reset({
+              index: 0,
+              routes: [{ name: 'Home' }],
+            });
+          }
+        }
+      ]
+    );
+  };
+
   const attemptsRemaining = MAX_ATTEMPTS - otpAttempts;
   const isMaxAttemptsReached = otpAttempts >= MAX_ATTEMPTS;
 
@@ -363,6 +391,14 @@ const OTPVerificationScreen = () => {
               disabled={isSubmitting}
             >
               <Text style={styles.cancelButtonText}>← Cancel</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.homeButton}
+              onPress={handleGoHome}
+              disabled={isSubmitting}
+            >
+              <Text style={styles.homeButtonText}>🏠 Go to Home</Text>
             </TouchableOpacity>
           </>
         )}
@@ -668,6 +704,20 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: '#333'
+  },
+  homeButton: {
+    marginHorizontal: 16,
+    marginVertical: 8,
+    paddingVertical: 12,
+    borderRadius: 8,
+    backgroundColor: '#34C759',
+    justifyContent: 'center',
+    alignItems: 'center'
+  },
+  homeButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#FFF'
   },
   buttonDisabled: {
     opacity: 0.5

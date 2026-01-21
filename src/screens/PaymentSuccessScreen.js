@@ -102,7 +102,7 @@ export const PaymentSuccessScreen = ({ route, navigation }) => {
               {/* Service */}
               <View style={styles.detailRow}>
                 <Text style={styles.detailLabel}>Service</Text>
-                <Text style={styles.detailValue}>{service?.name || 'Service'}</Text>
+                <Text style={styles.detailValue}>{service?.title || 'Service'}</Text>
               </View>
               <View style={styles.divider} />
 

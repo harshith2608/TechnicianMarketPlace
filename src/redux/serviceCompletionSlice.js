@@ -5,7 +5,8 @@
 
 import { createAsyncThunk, createSlice } from '@reduxjs/toolkit';
 import { collection, doc, getDoc, serverTimestamp, setDoc, updateDoc } from 'firebase/firestore';
-import { db } from '../config/firebase';
+import { httpsCallable } from 'firebase/functions';
+import { db, functions } from '../config/firebase';
 import { generateOTP, validateOTP } from '../utils/otpService';
 
 /**
@@ -13,7 +14,7 @@ import { generateOTP, validateOTP } from '../utils/otpService';
  */
 export const initiateServiceCompletion = createAsyncThunk(
   'serviceCompletion/initiate',
-  async ({ bookingId, conversationId, paymentId, customerId, technicianId }, { rejectWithValue }) => {
+  async ({ bookingId, conversationId, paymentId, razorpaySignature, customerId, technicianId }, { rejectWithValue }) => {
     try {
       // Generate 4-digit OTP
       const otp = generateOTP();
@@ -48,9 +49,12 @@ export const initiateServiceCompletion = createAsyncThunk(
         createdAt: serverTimestamp()
       };
 
-      // Only add paymentId if it exists
+      // Only add payment info if it exists
       if (paymentId) {
         completionData.paymentId = paymentId;
+      }
+      if (razorpaySignature) {
+        completionData.razorpaySignature = razorpaySignature;
       }
 
       await setDoc(completionRef, completionData);
@@ -136,6 +140,27 @@ export const verifyServiceCompletionOTP = createAsyncThunk(
       await updateDoc(bookingRef, {
         status: 'completed'
       });
+
+      // Now capture the payment and update technician earnings
+      // The completion document should have paymentId and razorpaySignature stored
+      if (completion.paymentId && completion.paymentId.startsWith('pay_')) {
+        // Only attempt capture if paymentId looks like a real Razorpay ID
+        try {
+          const capturePayment = httpsCallable(functions, 'capturePayment');
+          const captureResult = await capturePayment({
+            orderId: completion.paymentId,
+            razorpayPaymentId: completion.paymentId,
+            razorpaySignature: completion.razorpaySignature || completion.paymentId
+          });
+          console.log('✓ Payment captured successfully:', captureResult.data);
+        } catch (paymentError) {
+          console.warn('Warning: Could not capture payment immediately:', paymentError);
+          // Don't fail the OTP verification if payment capture fails
+          // The payment can be captured later through a retry mechanism
+        }
+      } else if (completion.paymentId) {
+        console.log('ℹ️ Skipping payment capture (test booking - earnings already updated)');
+      }
 
       return {
         completionId,

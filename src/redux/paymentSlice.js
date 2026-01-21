@@ -60,8 +60,6 @@ export const initializePayment = createAsyncThunk(
         updatedAt: serverTimestamp(),
       });
 
-      console.log('✅ Payment initialized:', { tempBookingId, amount, commission: orderData.commission });
-
       return {
         tempBookingId,
         conversationId,
@@ -97,6 +95,7 @@ export const processPaymentSuccess = createAsyncThunk(
     description,
     estimatedPrice,
     razorpayPaymentId, 
+    razorpaySignature,
     orderId, 
     paymentMethod 
   }, { rejectWithValue }) => {
@@ -129,6 +128,8 @@ export const processPaymentSuccess = createAsyncThunk(
         confirmedAt: null,
         paymentStatus: 'completed',
         paymentId: razorpayPaymentId,
+        razorpayPaymentId: razorpayPaymentId,
+        razorpaySignature: razorpaySignature,
       });
 
       const bookingId = bookingDoc.id;
@@ -138,6 +139,7 @@ export const processPaymentSuccess = createAsyncThunk(
       await updateDoc(paymentRef, {
         bookingId,
         paymentId: razorpayPaymentId,
+        razorpaySignature: razorpaySignature,
         status: PAYMENT_CONFIG.PAYMENT_STATUS.CAPTURED,
         paymentMethod,
         capturedAt: serverTimestamp(),
@@ -152,8 +154,6 @@ export const processPaymentSuccess = createAsyncThunk(
         commission: paymentData.commission.toString(),
         technicianEarnings: paymentData.technicianEarnings.toString(),
       });
-
-      console.log('✅ Payment captured & booking created:', { bookingId, paymentId: razorpayPaymentId });
 
       return {
         bookingId,

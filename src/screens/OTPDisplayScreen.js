@@ -73,6 +73,13 @@ const OTPDisplayScreen = () => {
     navigation.goBack();
   };
 
+  const handleGoHome = () => {
+    navigation.reset({
+      index: 0,
+      routes: [{ name: 'Home' }],
+    });
+  };
+
   if (!displayedOtp) {
     return (
       <View style={styles.container}>
@@ -157,6 +164,13 @@ const OTPDisplayScreen = () => {
         onPress={handleBackToBooking}
       >
         <Text style={styles.backButtonText}>← Back to Booking</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={styles.homeButton}
+        onPress={handleGoHome}
+      >
+        <Text style={styles.homeButtonText}>🏠 Go to Home</Text>
       </TouchableOpacity>
 
       {/* Footer */}
@@ -372,6 +386,20 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: '#333'
+  },
+  homeButton: {
+    marginHorizontal: 16,
+    marginVertical: 8,
+    paddingVertical: 12,
+    borderRadius: 8,
+    backgroundColor: '#34C759',
+    justifyContent: 'center',
+    alignItems: 'center'
+  },
+  homeButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#FFF'
   },
   footer: {
     marginHorizontal: 16,

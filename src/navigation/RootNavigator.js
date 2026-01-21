@@ -4,6 +4,7 @@ import { useSelector } from 'react-redux';
 import { BookingsScreen } from '../screens/BookingsScreen';
 import { CallScreen } from '../screens/CallScreen';
 import { ChatDetailScreen } from '../screens/ChatDetailScreen';
+import { DevDashboardScreen } from '../screens/DevDashboardScreen';
 import { ForgotPasswordScreen } from '../screens/ForgotPasswordScreen';
 import { HomeScreen } from '../screens/HomeScreen';
 import { LegalAcceptanceScreen } from '../screens/LegalAcceptanceScreen';
@@ -232,6 +233,10 @@ export const RootNavigator = () => {
             <Stack.Screen
               name="ForgotPassword"
               component={ForgotPasswordScreen}
+            />
+            <Stack.Screen
+              name="DevDashboard"
+              component={DevDashboardScreen}
             />
           </Stack.Group>
         )}

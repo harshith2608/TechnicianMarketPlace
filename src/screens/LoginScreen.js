@@ -223,6 +223,14 @@ export const LoginScreen = ({ navigation }) => {
         <Text style={styles.registerLink}>Don't have an account? Register</Text>
       </TouchableOpacity>
 
+      {/* Developer Testing Mode Button */}
+      <TouchableOpacity
+        style={styles.devButton}
+        onPress={() => navigation.navigate('DevDashboard')}
+      >
+        <Text style={styles.devButtonText}>🧪 Developer Testing</Text>
+      </TouchableOpacity>
+
       {/* Phone Verification Modal */}
       <PhoneVerificationModal
         visible={showPhoneModal}
@@ -371,5 +379,20 @@ const styles = StyleSheet.create({
     color: '#999',
     textAlign: 'center',
     fontStyle: 'italic',
+  },
+  devButton: {
+    marginTop: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    backgroundColor: '#f0f0f0',
+    borderWidth: 1,
+    borderColor: '#ddd',
+    alignItems: 'center',
+  },
+  devButtonText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#666',
   },
 });

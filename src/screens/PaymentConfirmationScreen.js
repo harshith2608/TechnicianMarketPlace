@@ -2,13 +2,13 @@ import { useEffect, useState } from 'react';
 import {
     ActivityIndicator,
     Dimensions,
-    SafeAreaView,
     ScrollView,
     StyleSheet,
     Text,
     TouchableOpacity,
     View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useDispatch, useSelector } from 'react-redux';
 import { selectCurrentPayment, selectPaymentLoading } from '../redux/paymentSlice';
 import { formatCurrency } from '../utils/paymentConfig';
@@ -29,11 +29,8 @@ const PaymentConfirmationScreen = ({ route, navigation }) => {
   const { payment, bookingId } = route.params || {};
 
   useEffect(() => {
-    console.log('Payment Confirmation - route params:', { payment, bookingId });
-    
     // Update status based on payment object
     if (payment) {
-      console.log('Payment status:', payment.status);
       if (payment.status === 'completed' || payment.status === 'captured') {
         setStatus('success');
       } else if (payment.status === 'failed') {

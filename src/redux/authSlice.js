@@ -16,6 +16,30 @@ const serializeFirestoreData = (data) => {
   };
 };
 
+// Helper function to serialize all user data timestamps
+const serializeUserData = (userData) => {
+  if (!userData) return null;
+  return {
+    ...userData,
+    createdAt: userData.createdAt ? 
+      (typeof userData.createdAt === 'object' && userData.createdAt.toDate 
+        ? userData.createdAt.toDate().toISOString() 
+        : userData.createdAt) 
+      : null,
+    phoneVerifiedAt: userData.phoneVerifiedAt ?
+      (typeof userData.phoneVerifiedAt === 'object' && userData.phoneVerifiedAt.toDate
+        ? userData.phoneVerifiedAt.toDate().toISOString()
+        : userData.phoneVerifiedAt)
+      : null,
+    lastPayoutDate: userData.lastPayoutDate ?
+      (typeof userData.lastPayoutDate === 'object' && userData.lastPayoutDate.toDate
+        ? userData.lastPayoutDate.toDate().toISOString()
+        : userData.lastPayoutDate)
+      : null,
+    legalAcceptance: userData.legalAcceptance ? serializeFirestoreData(userData.legalAcceptance) : null,
+  };
+};
+
 export const registerUser = createAsyncThunk(
   'auth/registerUser',
   async ({ name, email, password, role = 'customer', phoneNumber = null }, { rejectWithValue }) => {
@@ -66,13 +90,11 @@ export const loginUser = createAsyncThunk(
       
       if (userDoc.exists()) {
         const userData = userDoc.data();
-        return {
+        return serializeUserData({
           id: userCredential.user.uid,
           email: userCredential.user.email,
-          name: userData.name || email.split('@')[0],
-          role: userData.role || 'customer',
-          legalAcceptance: serializeFirestoreData(userData.legalAcceptance) || { accepted: false, acceptedAt: null, version: '1.0' },
-        };
+          ...userData,
+        });
       } else {
         // Create a profile with just the email prefix as name for first login
         const nameFromEmail = email.split('@')[0];
@@ -85,13 +107,13 @@ export const loginUser = createAsyncThunk(
           legalAcceptance: legalAcceptanceData,
         });
         
-        return {
+        return serializeUserData({
           id: userCredential.user.uid,
           email: userCredential.user.email,
           name: nameFromEmail,
           role: 'customer',
-          legalAcceptance: serializeFirestoreData(legalAcceptanceData),
-        };
+          legalAcceptance: legalAcceptanceData,
+        });
       }
     } catch (error) {
       return rejectWithValue(error.message);
@@ -113,15 +135,13 @@ export const loginWithPhone = createAsyncThunk(
 
       if (userDoc.exists()) {
         const userData = userDoc.data();
-        return {
+        return serializeUserData({
           id: uid,
           email: userData.email || '',
-          name: userData.name || 'User',
-          role: userData.role || 'customer',
           phoneNumber: userData.phoneNumber || phoneNumber,
           isPhoneVerified: true,
-          legalAcceptance: serializeFirestoreData(userData.legalAcceptance) || { accepted: false, acceptedAt: null, version: '1.0' },
-        };
+          ...userData,
+        });
       } else {
         // User doesn't exist - phone not registered
         return rejectWithValue('Phone number not registered. Please register first.');
@@ -184,6 +204,33 @@ export const acceptLegalTerms = createAsyncThunk(
         version: '1.0',
         acceptedTerms: ['terms_of_service', 'warranty_policy', 'cancellation_policy', 'privacy_policy', 'platform_disclaimer'],
       };
+    } catch (error) {
+      return rejectWithValue(error.message);
+    }
+  }
+);
+
+/**
+ * Refresh user data from Firestore
+ * Used to update earnings and other fields after transactions
+ */
+export const refreshUserData = createAsyncThunk(
+  'auth/refreshUserData',
+  async ({ userId }, { rejectWithValue }) => {
+    try {
+      const { getDoc, doc } = await import('firebase/firestore');
+      const userDocRef = doc(db, 'users', userId);
+      const userDocSnap = await getDoc(userDocRef);
+      
+      if (userDocSnap.exists()) {
+        const userData = userDocSnap.data();
+        return serializeUserData({
+          id: userId,
+          ...userData,
+        });
+      } else {
+        return rejectWithValue('User not found');
+      }
     } catch (error) {
       return rejectWithValue(error.message);
     }
@@ -302,6 +349,25 @@ const authSlice = createSlice({
         state.error = null;
       })
       .addCase(acceptLegalTerms.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      });
+
+    // Refresh User Data
+    builder
+      .addCase(refreshUserData.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(refreshUserData.fulfilled, (state, action) => {
+        state.loading = false;
+        if (state.user && action.payload) {
+          // Merge refreshed data into existing user state
+          state.user = { ...state.user, ...action.payload };
+        }
+        state.error = null;
+      })
+      .addCase(refreshUserData.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
       });

@@ -42,7 +42,6 @@ export const BookingsScreen = ({ navigation }) => {
   // Refresh bookings when screen is focused
   useFocusEffect(
     useCallback(() => {
-      console.log('📱 BookingsScreen focused - refreshing data');
       setRefreshing(true);
       fetchBookings();
     }, [fetchBookings])
@@ -106,7 +105,7 @@ export const BookingsScreen = ({ navigation }) => {
                       const serviceRef = doc(db, 'services', booking.serviceId);
                       const serviceDoc = await getDoc(serviceRef);
                       if (serviceDoc.exists()) {
-                        booking.serviceName = serviceDoc.data().name || 'Service Booking';
+                        booking.serviceName = serviceDoc.data().title || 'Service Booking';
                       } else {
                         booking.serviceName = 'Service Booking';
                       }
@@ -122,11 +121,6 @@ export const BookingsScreen = ({ navigation }) => {
               }
 
               // Update bookings: replace this conversation's bookings
-              console.log(`🔄 Real-time update for conversation ${convDoc.id.substring(0, 8)}: ${conversationBookings.length} bookings`);
-              conversationBookings.forEach(b => {
-                console.log(`  └─ Booking ${b.id.substring(0, 8)}: ${b.status}`);
-              });
-              
               setBookings((prevBookings) => {
                 const otherBookings = prevBookings.filter(b => b.conversationId !== convDoc.id);
                 const updated = [...otherBookings, ...conversationBookings];
@@ -166,19 +160,12 @@ export const BookingsScreen = ({ navigation }) => {
 
   const getFilteredBookings = () => {
     const now = new Date();
-    console.log(`📊 Filtering bookings for tab: ${activeTab}`);
-    console.log(`   Total bookings: ${bookings.length}`);
-    bookings.forEach(b => {
-      console.log(`   └─ Booking ${b.id.substring(0, 8)}: status=${b.status}, scheduled=${new Date(b.scheduledDate).toLocaleDateString()}`);
-    });
     
     if (activeTab === 'upcoming') {
       const filtered = bookings.filter(b => new Date(b.scheduledDate) >= now);
-      console.log(`   ✓ Upcoming bookings: ${filtered.length}`);
       return filtered;
     } else {
       const filtered = bookings.filter(b => new Date(b.scheduledDate) < now);
-      console.log(`   ✓ Past bookings: ${filtered.length}`);
       return filtered;
     }
   };
@@ -224,27 +211,16 @@ export const BookingsScreen = ({ navigation }) => {
           style: 'destructive',
           onPress: async () => {
             try {
-              console.log(`🚫 Cancelling booking: ${booking.id.substring(0, 8)} in conversation ${booking.conversationId.substring(0, 8)}`);
-              
-              // Show loading indicator
-              Alert.alert('Processing', 'Cancelling booking and processing refund...', [
-                { text: 'Wait', disabled: true }
-              ], { cancelable: false });
-
               // First, get the payment ID for this booking
               const bookingRef = doc(db, 'conversations', booking.conversationId, 'bookings', booking.id);
               const bookingSnap = await getDoc(bookingRef);
               const bookingData = bookingSnap.data();
-              
-              console.log(`   Before update: status=${bookingData?.status}`);
               
               // Update booking status to cancelled
               await updateDoc(bookingRef, {
                 status: 'cancelled',
                 cancelledAt: new Date().toISOString(),
               });
-              
-              console.log(`   ✅ After update: status set to cancelled`);
 
               // Process refund if payment exists
               if (bookingData?.paymentId) {
@@ -254,13 +230,14 @@ export const BookingsScreen = ({ navigation }) => {
                     {
                       reason: 'Customer cancelled booking',
                       bookingId: booking.id,
+                      conversationId: booking.conversationId,
                     }
                   );
 
                   // Dismiss loading alert
                   Alert.alert(
                     'Booking Cancelled',
-                    `Booking cancelled successfully!\n\nRefund: ₹${refundResult.customerRefund.toFixed(2)}\nRefund Type: ${refundResult.reason}`
+                    `Refund initiated successfully!\n\nAmount: ₹${refundResult.refundAmount}\nStatus: ${refundResult.message}`
                   );
                 } catch (refundError) {
                   console.warn('Refund processing error:', refundError.message);
@@ -296,13 +273,39 @@ export const BookingsScreen = ({ navigation }) => {
       <View style={styles.bookingHeader}>
         <View style={styles.bookingTitleSection}>
           <Text style={styles.bookingTitle}>Booking #{item.id.substring(0, 8)}</Text>
-          <View
-            style={[
-              styles.statusBadge,
-              { backgroundColor: getStatusColor(item.status) },
-            ]}
-          >
-            <Text style={styles.statusText}>{item.status.toUpperCase()}</Text>
+          <View style={styles.statusBadgesContainer}>
+            {/* Booking Status Badge */}
+            <View
+              style={[
+                styles.statusBadge,
+                styles.bookingStatusBadge,
+                { backgroundColor: getStatusColor(item.status) },
+              ]}
+            >
+              <Text style={styles.statusLabel}>Status</Text>
+              <Text style={styles.statusText}>{item.status.toUpperCase()}</Text>
+            </View>
+            
+            {/* Payment Status Badge */}
+            {item.paymentStatus && (
+              <View
+                style={[
+                  styles.statusBadge,
+                  styles.paymentStatusBadge,
+                  {
+                    backgroundColor:
+                      item.paymentStatus === 'refunded'
+                        ? '#28a745'
+                        : item.paymentStatus === 'refunding'
+                        ? '#FFC107'
+                        : '#6c757d',
+                  },
+                ]}
+              >
+                <Text style={styles.statusLabel}>Payment</Text>
+                <Text style={styles.statusText}>{item.paymentStatus.toUpperCase()}</Text>
+              </View>
+            )}
           </View>
         </View>
         <TouchableOpacity
@@ -624,16 +627,39 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#333',
   },
+  statusBadgesContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 8,
+  },
   statusBadge: {
     alignSelf: 'flex-start',
     paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingVertical: 8,
     borderRadius: 6,
+  },
+  bookingStatusBadge: {
+    borderLeftWidth: 3,
+    borderLeftColor: 'rgba(255, 255, 255, 0.6)',
+  },
+  paymentStatusBadge: {
+    borderLeftWidth: 3,
+    borderLeftColor: 'rgba(255, 255, 255, 0.6)',
+    opacity: 0.9,
+  },
+  statusLabel: {
+    color: 'rgba(255, 255, 255, 0.7)',
+    fontSize: 8,
+    fontWeight: '500',
+    marginBottom: 2,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   statusText: {
     color: '#fff',
-    fontSize: 10,
-    fontWeight: '600',
+    fontSize: 11,
+    fontWeight: '700',
   },
   contactButton: {
     fontSize: 24,

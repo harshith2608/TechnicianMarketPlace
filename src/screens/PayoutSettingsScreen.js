@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { useEffect, useState } from 'react';
 import {
@@ -14,6 +15,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useDispatch, useSelector } from 'react-redux';
 import { db } from '../config/firebase';
 import {
+  clearSuccess,
   requestPayout,
   selectPaymentLoading,
   selectPaymentSuccess,
@@ -39,14 +41,27 @@ const PayoutSettingsScreen = ({ navigation }) => {
   const [payoutMethod, setPayoutMethod] = useState('bank'); // bank or upi
   const [errors, setErrors] = useState({});
   const [savedDetails, setSavedDetails] = useState(null);
+  const [justSaved, setJustSaved] = useState(false); // Track if we just saved on this screen
 
   const loading = useSelector(selectPaymentLoading);
   const success = useSelector(selectPaymentSuccess);
 
-  // Load saved payout details from Firestore on mount
+  // Load saved payout details from Firestore on mount and when screen is focused
   useEffect(() => {
     loadPayoutDetails();
   }, [user?.id]);
+
+  // Reload details when screen comes into focus (after navigating back)
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('focus', () => {
+      // Clear any stale success flag and saved flag to prevent unwanted alerts
+      setJustSaved(false);
+      dispatch(clearSuccess());
+      loadPayoutDetails();
+    });
+
+    return unsubscribe;
+  }, [navigation, dispatch]);
 
   /**
    * Load payout details from Firestore
@@ -63,51 +78,61 @@ const PayoutSettingsScreen = ({ navigation }) => {
 
       if (docSnap.exists() && docSnap.data().payoutSettings) {
         const encryptedSettings = docSnap.data().payoutSettings;
+        console.log('Loaded encrypted settings from Firestore:', Object.keys(encryptedSettings));
         
-        // Decrypt the settings
-        const settings = decryptPayoutData(encryptedSettings);
-        
-        setSavedDetails(settings);
-        setPayoutMethod(settings.method || 'bank');
+        try {
+          // Decrypt the settings
+          const settings = decryptPayoutData(encryptedSettings);
+          console.log('Successfully decrypted settings:', settings);
+          
+          setSavedDetails(settings);
+          setPayoutMethod(settings.method || 'bank');
 
-        // Pre-fill form with decrypted data
-        if (settings.method === 'bank') {
-          setBankDetails({
-            accountNumber: settings.accountNumber || '',
-            confirmAccountNumber: settings.accountNumber || '',
-            ifscCode: settings.ifscCode || '',
-            accountHolderName: settings.accountHolderName || '',
-            upiId: '',
-          });
-        } else {
-          setBankDetails({
-            accountNumber: '',
-            confirmAccountNumber: '',
-            ifscCode: '',
-            accountHolderName: '',
-            upiId: settings.upiId || '',
-          });
+          // Pre-fill form with decrypted data
+          if (settings.method === 'bank') {
+            setBankDetails({
+              accountNumber: settings.accountNumber || '',
+              confirmAccountNumber: settings.accountNumber || '',
+              ifscCode: settings.ifscCode || '',
+              accountHolderName: settings.accountHolderName || '',
+              upiId: '',
+            });
+          } else {
+            setBankDetails({
+              accountNumber: '',
+              confirmAccountNumber: '',
+              ifscCode: '',
+              accountHolderName: '',
+              upiId: settings.upiId || '',
+            });
+          }
+        } catch (decryptErr) {
+          console.warn('Could not decrypt saved payout settings:', decryptErr);
+          console.warn('Encrypted data received:', encryptedSettings);
+          // Continue without saved settings - user can enter new ones
         }
       }
     } catch (err) {
       console.error('Error loading payout details:', err);
-      Alert.alert('Error', 'Failed to load payout settings. Details may be corrupted.');
+      // Don't show alert - just let user continue with blank form
     } finally {
       setIsLoading(false);
     }
   };
 
   useEffect(() => {
-    // Show success message
-    if (success) {
+    // Show success message only if we just saved settings on this screen
+    if (success && justSaved) {
       Alert.alert('Success', 'Payout settings updated successfully', [
         { text: 'OK', onPress: () => {
           setIsEditMode(false);
+          setJustSaved(false);
           loadPayoutDetails();
+          dispatch(clearSuccess());
         } },
       ]);
     }
-  }, [success]);
+  }, [success, justSaved, dispatch]);
 
   /**
    * Validate bank details
@@ -168,6 +193,8 @@ const PayoutSettingsScreen = ({ navigation }) => {
       return;
     }
 
+    // Mark that we're saving from this screen so alert will show
+    setJustSaved(true);
     setIsLoading(true);
 
     try {
@@ -185,8 +212,8 @@ const PayoutSettingsScreen = ({ navigation }) => {
         updatedAt: new Date().toISOString(),
       };
 
-      // Encrypt sensitive data before saving to Firestore
-      const encryptedData = encryptPayoutData(payoutData);
+      // Encrypt sensitive data locally using TweetNaCl.js (async operation)
+      const encryptedData = await encryptPayoutData(payoutData);
 
       // Save encrypted data to Firestore
       const technicianDocRef = doc(db, 'users', user.id);
@@ -194,7 +221,7 @@ const PayoutSettingsScreen = ({ navigation }) => {
 
       setSavedDetails(payoutData);
       setIsEditMode(false);
-      Alert.alert('Success', 'Payout settings saved securely (encrypted)');
+      Alert.alert('Success', 'Payout settings saved securely');
     } catch (err) {
       console.error('Error saving payout settings:', err);
       Alert.alert('Error', err.message || 'Failed to save payout settings');
@@ -403,8 +430,17 @@ const PayoutSettingsScreen = ({ navigation }) => {
       <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
         {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.title}>Payout Settings</Text>
-          <Text style={styles.subtitle}>Configure where and how to receive your earnings</Text>
+          <TouchableOpacity
+            onPress={() => navigation.goBack()}
+            style={styles.backButton}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <Ionicons name="chevron-back" size={28} color="#2196F3" />
+          </TouchableOpacity>
+          <View style={styles.headerContent}>
+            <Text style={styles.title}>Payout Settings</Text>
+            <Text style={styles.subtitle}>Configure where and how to receive your earnings</Text>
+          </View>
       </View>
 
       {/* Earnings Overview */}
@@ -659,6 +695,16 @@ const styles = StyleSheet.create({
     paddingVertical: 20,
     paddingHorizontal: 16,
     paddingTop: 30,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+  },
+  backButton: {
+    paddingVertical: 4,
+    marginTop: 2,
+  },
+  headerContent: {
+    flex: 1,
   },
   title: {
     fontSize: 28,

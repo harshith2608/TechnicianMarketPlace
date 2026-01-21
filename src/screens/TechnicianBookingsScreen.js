@@ -2,14 +2,14 @@ import { useFocusEffect } from '@react-navigation/native';
 import { collection, doc, getDoc, getDocs, limit, onSnapshot, query, updateDoc, where } from 'firebase/firestore';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
-  Alert,
-  FlatList,
-  RefreshControl,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View
+    ActivityIndicator,
+    Alert,
+    FlatList,
+    RefreshControl,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSelector } from 'react-redux';
@@ -45,7 +45,6 @@ export const TechnicianBookingsScreen = ({ navigation }) => {
   // Refresh bookings when screen is focused
   useFocusEffect(
     useCallback(() => {
-      console.log('📱 TechnicianBookingsScreen focused - refreshing data');
       setRefreshing(true);
       fetchTechnicianBookings();
     }, [fetchTechnicianBookings])
@@ -88,14 +87,10 @@ export const TechnicianBookingsScreen = ({ navigation }) => {
           const unsubscribe = onSnapshot(
             bookingsQuery,
             async (bookingsSnap) => {
-              console.log(`🔔 onSnapshot triggered for conversation ${convDoc.id.substring(0, 8)}`);
-              console.log(`   Raw snapshot count: ${bookingsSnap.size} documents`);
-              
               const conversationBookings = [];
 
               for (const bookingDoc of bookingsSnap.docs) {
                 const bookingData = bookingDoc.data();
-                console.log(`   📋 Document ${bookingDoc.id.substring(0, 8)}: status=${bookingData.status}, technicianId=${bookingData.technicianId}`);
                 
                 const booking = {
                   id: bookingDoc.id,
@@ -127,7 +122,7 @@ export const TechnicianBookingsScreen = ({ navigation }) => {
                     const serviceSnap = await getDoc(serviceRef);
                     if (serviceSnap.exists()) {
                       const serviceData = serviceSnap.data();
-                      booking.serviceName = serviceData.name || booking.serviceName || 'Service';
+                      booking.serviceName = serviceData.title || booking.serviceName || 'Service';
                       booking.serviceRating = serviceData.rating || 0;
                       booking.serviceReviews = serviceData.reviews || 0;
                     }
@@ -140,11 +135,6 @@ export const TechnicianBookingsScreen = ({ navigation }) => {
               }
 
               // Update bookings: replace this conversation's bookings
-              console.log(`🔄 Real-time update for conversation ${convDoc.id.substring(0, 8)}: ${conversationBookings.length} bookings`);
-              conversationBookings.forEach(b => {
-                console.log(`  └─ Booking ${b.id.substring(0, 8)}: ${b.status}`);
-              });
-              
               setBookings((prevBookings) => {
                 const otherBookings = prevBookings.filter(b => b.conversationId !== convDoc.id);
                 const updated = [...otherBookings, ...conversationBookings];
@@ -193,28 +183,20 @@ export const TechnicianBookingsScreen = ({ navigation }) => {
 
   const getFilteredBookings = () => {
     const now = new Date();
-    console.log(`📊 Filtering bookings for tab: ${activeTab}`);
-    console.log(`   Total bookings: ${bookings.length}`);
-    bookings.forEach(b => {
-      console.log(`   └─ Booking ${b.id.substring(0, 8)}: status=${b.status}, scheduled=${new Date(b.scheduledDate).toLocaleDateString()}`);
-    });
     
     if (activeTab === 'pending') {
       const filtered = bookings.filter(b => b.status === 'pending');
-      console.log(`   ✓ Pending bookings: ${filtered.length}`);
       return filtered;
     } else if (activeTab === 'confirmed') {
       const filtered = bookings.filter(
         b => b.status === 'confirmed' && new Date(b.scheduledDate) >= now
       );
-      console.log(`   ✓ Confirmed bookings: ${filtered.length}`);
       return filtered;
     } else {
       // History: completed or past confirmed bookings
       const filtered = bookings.filter(
         b => b.status === 'completed' || b.status === 'cancelled' || (b.status === 'confirmed' && new Date(b.scheduledDate) < now)
       );
-      console.log(`   ✓ History bookings: ${filtered.length}`);
       return filtered;
     }
   };
@@ -293,11 +275,6 @@ export const TechnicianBookingsScreen = ({ navigation }) => {
           style: 'destructive',
           onPress: async () => {
             try {
-              // Show loading indicator
-              Alert.alert('Processing', 'Cancelling booking and processing refund...', [
-                { text: 'Wait', disabled: true }
-              ], { cancelable: false });
-
               const bookingRef = doc(db, 'conversations', booking.conversationId, 'bookings', booking.id);
               const bookingSnap = await getDoc(bookingRef);
               const bookingData = bookingSnap.data();
@@ -315,13 +292,14 @@ export const TechnicianBookingsScreen = ({ navigation }) => {
                     {
                       reason: 'Booking cancelled by technician',
                       bookingId: booking.id,
+                      conversationId: booking.conversationId,
                     }
                   );
 
                   // Dismiss loading alert
                   Alert.alert(
                     'Booking Cancelled',
-                    `Booking cancelled successfully!\n\nCustomer Refund: ₹${refundResult.customerRefund.toFixed(2)}\n${refundResult.reason}`
+                    `Refund initiated successfully!\n\nAmount: ₹${refundResult.refundAmount}\nStatus: ${refundResult.message}`
                   );
                 } catch (refundError) {
                   console.warn('Refund processing error:', refundError.message);

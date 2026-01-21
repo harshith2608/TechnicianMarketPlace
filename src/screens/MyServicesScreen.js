@@ -114,6 +114,8 @@ export const MyServicesScreen = ({ navigation }) => {
         dispatch(fetchUserServices(user.id));
         resetForm();
         setMode('list');
+      } else if (result.type === updateService.rejected.type) {
+        Alert.alert('Error', result.payload || 'Failed to update service');
       }
     } else {
       // Create new service
@@ -133,6 +135,9 @@ export const MyServicesScreen = ({ navigation }) => {
         Alert.alert('Success', 'Service created successfully!');
         resetForm();
         setMode('list');
+        dispatch(fetchUserServices(user.id));
+      } else if (result.type === createService.rejected.type) {
+        Alert.alert('Error', result.payload || 'Failed to create service');
       }
     }
   };

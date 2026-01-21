@@ -9,12 +9,18 @@
  * If they're not set, the refund API calls will fail with authentication errors.
  */
 
+// Load environment variables from .env file (for local development and Firebase Functions)
+if (process.env.NODE_ENV !== 'production') {
+  require('dotenv').config();
+}
+
 module.exports = {
   // Razorpay Configuration
   // ⚠️ CRITICAL: Must be set in .env file for deployment
   razorpay: {
-    keyId: process.env.RAZORPAY_KEY_ID || 'rzp_test_S5Qwfrbq71Ub9s',
-    keySecret: process.env.RAZORPAY_KEY_SECRET || 'your_razorpay_key_secret',
+    keyId: process.env.RAZORPAY_KEY_ID || 'rzp_test_S5UrnOlHsuvfJN',
+    keySecret: process.env.RAZORPAY_KEY_SECRET || '5QG21F2ppJJkl73Op0c4ECur',
+    webhookSecret: process.env.RAZORPAY_WEBHOOK_SECRET || 'fTQ6MrsjAT4UEQ@',
   },
 
   // Payment Configuration

@@ -156,8 +156,6 @@ export const updatePaymentNotes = async (paymentId, notes) => {
       { notes }
     );
 
-    console.log('✅ Payment notes updated in Razorpay:', { paymentId, notes });
-
     return {
       paymentId: updateResponse.data.id,
       notes: updateResponse.data.notes,
