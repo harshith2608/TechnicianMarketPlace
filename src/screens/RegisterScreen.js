@@ -110,6 +110,11 @@ export const RegisterScreen = ({ navigation }) => {
         contentContainerStyle={[styles.container, { paddingTop: insets.top }]}
         showsVerticalScrollIndicator={false}
       >
+        {/* FixBolt Logo */}
+        <View style={styles.logoContainer}>
+          <FixBoltLogo width={80} height={80} />
+        </View>
+        
         <Text style={styles.title}>Create Account</Text>
         
         <TextInput
@@ -247,12 +252,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: '#f5f5f5',
   },
+  logoContainer: {
+    alignItems: 'center',
+    marginBottom: 20,
+  },
   title: {
     fontSize: 28,
     fontWeight: 'bold',
     marginBottom: 30,
     textAlign: 'center',
-    color: '#333',
+    color: '#0066FF',
   },
   input: {
     backgroundColor: '#fff',

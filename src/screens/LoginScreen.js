@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useDispatch, useSelector } from 'react-redux';
+import { FixBoltLogo } from '../components/FixBoltLogo';
 import { PhoneVerificationModal } from '../components/PhoneVerificationModal';
 import { db } from '../config/firebase';
 import { clearError, loginUser, loginWithPhone } from '../redux/authSlice';
@@ -114,7 +115,13 @@ export const LoginScreen = ({ navigation }) => {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
+      {/* FixBolt Logo */}
+      <View style={styles.logoContainer}>
+        <FixBoltLogo width={100} height={100} />
+      </View>
+      
       <Text style={styles.title}>FixBolt</Text>
+      <Text style={styles.tagline}>Quick Repairs, Expert Hands</Text>
       
       {error && (
         <View style={styles.errorContainer}>
@@ -251,12 +258,23 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: '#f5f5f5',
   },
+  logoContainer: {
+    alignItems: 'center',
+    marginBottom: 20,
+  },
   title: {
     fontSize: 28,
     fontWeight: 'bold',
-    marginBottom: 40,
+    marginBottom: 8,
     textAlign: 'center',
-    color: '#333',
+    color: '#0066FF',
+  },
+  tagline: {
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'center',
+    marginBottom: 30,
+    fontStyle: 'italic',
   },
   errorContainer: {
     backgroundColor: '#FFE5E5',
