@@ -124,6 +124,9 @@ const ServiceCompletionScreen = () => {
         if (booking.razorpaySignature) {
           params.razorpaySignature = booking.razorpaySignature;
         }
+        if (booking.razorpayOrderId) {
+          params.razorpayOrderId = booking.razorpayOrderId;
+        }
 
         const result = await dispatch(
           initiateServiceCompletion(params)

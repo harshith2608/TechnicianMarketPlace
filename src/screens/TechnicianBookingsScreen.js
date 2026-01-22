@@ -369,7 +369,7 @@ export const TechnicianBookingsScreen = ({ navigation }) => {
 
         <View style={styles.detailRow}>
           <Text style={styles.detailLabel}>Amount</Text>
-          <Text style={styles.priceValue}>₹{Math.round(item.estimatedPrice * 1.1)}</Text>
+          <Text style={styles.priceValue}>₹{item.estimatedPrice}</Text>
         </View>
 
         {item.description && (

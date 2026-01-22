@@ -5,8 +5,7 @@
 
 import { createAsyncThunk, createSlice } from '@reduxjs/toolkit';
 import { collection, doc, getDoc, serverTimestamp, setDoc, updateDoc } from 'firebase/firestore';
-import { httpsCallable } from 'firebase/functions';
-import { db, functions } from '../config/firebase';
+import { db } from '../config/firebase';
 import { generateOTP, validateOTP } from '../utils/otpService';
 
 /**
@@ -14,7 +13,7 @@ import { generateOTP, validateOTP } from '../utils/otpService';
  */
 export const initiateServiceCompletion = createAsyncThunk(
   'serviceCompletion/initiate',
-  async ({ bookingId, conversationId, paymentId, razorpaySignature, customerId, technicianId }, { rejectWithValue }) => {
+  async ({ bookingId, conversationId, paymentId, razorpaySignature, razorpayOrderId, customerId, technicianId }, { rejectWithValue }) => {
     try {
       // Generate 4-digit OTP
       const otp = generateOTP();
@@ -55,6 +54,9 @@ export const initiateServiceCompletion = createAsyncThunk(
       }
       if (razorpaySignature) {
         completionData.razorpaySignature = razorpaySignature;
+      }
+      if (razorpayOrderId) {
+        completionData.razorpayOrderId = razorpayOrderId;
       }
 
       await setDoc(completionRef, completionData);
@@ -141,26 +143,34 @@ export const verifyServiceCompletionOTP = createAsyncThunk(
         status: 'completed'
       });
 
-      // Now capture the payment and update technician earnings
-      // The completion document should have paymentId and razorpaySignature stored
-      if (completion.paymentId && completion.paymentId.startsWith('pay_')) {
-        // Only attempt capture if paymentId looks like a real Razorpay ID
-        try {
-          const capturePayment = httpsCallable(functions, 'capturePayment');
-          const captureResult = await capturePayment({
-            orderId: completion.paymentId,
-            razorpayPaymentId: completion.paymentId,
-            razorpaySignature: completion.razorpaySignature || completion.paymentId
-          });
-          console.log('✓ Payment captured successfully:', captureResult.data);
-        } catch (paymentError) {
-          console.warn('Warning: Could not capture payment immediately:', paymentError);
-          // Don't fail the OTP verification if payment capture fails
-          // The payment can be captured later through a retry mechanism
+      // Update technician earnings now that service is completed
+      // Get booking to access payment details
+      const bookingSnap = await getDoc(bookingRef);
+      if (bookingSnap.exists()) {
+        const booking = bookingSnap.data();
+        const technicianEarnings = booking.estimatedPrice ? Math.round(booking.estimatedPrice * 0.9) : 0;
+        
+        if (technicianEarnings > 0) {
+          const { doc: firebaseDoc, updateDoc: firebaseUpdateDoc, getDoc: firebaseGetDoc } = await import('firebase/firestore');
+          const technicianRef = firebaseDoc(db, 'users', completion.technicianId);
+          const techSnap = await firebaseGetDoc(technicianRef);
+          
+          if (techSnap.exists()) {
+            const currentEarnings = techSnap.data().totalEarnings || 0;
+            const currentPending = techSnap.data().pendingPayout || 0;
+            const currentTransactions = techSnap.data().totalTransactions || 0;
+            
+            await firebaseUpdateDoc(technicianRef, {
+              totalEarnings: currentEarnings + technicianEarnings,
+              pendingPayout: currentPending + technicianEarnings,
+              totalTransactions: currentTransactions + 1,
+            });
+            console.log(`💰 Technician earnings updated: +₹${technicianEarnings}`);
+          }
         }
-      } else if (completion.paymentId) {
-        console.log('ℹ️ Skipping payment capture (test booking - earnings already updated)');
       }
+
+      console.log('✓ Service completed and earnings updated');
 
       return {
         completionId,
