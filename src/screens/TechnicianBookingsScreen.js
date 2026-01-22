@@ -1,5 +1,6 @@
-import { collection, doc, getDoc, getDocs, limit, query, updateDoc, where } from 'firebase/firestore';
-import { useCallback, useEffect, useState } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
+import { collection, doc, getDoc, getDocs, limit, onSnapshot, query, updateDoc, where } from 'firebase/firestore';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
@@ -13,6 +14,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSelector } from 'react-redux';
 import { db } from '../config/firebase';
+import { processRefundRequest } from '../services/bookingService';
 
 export const TechnicianBookingsScreen = ({ navigation }) => {
   const insets = useSafeAreaInsets();
@@ -22,10 +24,31 @@ export const TechnicianBookingsScreen = ({ navigation }) => {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState('pending'); // 'pending', 'confirmed', 'history'
+  const [showMenu, setShowMenu] = useState(false);
+  const unsubscribersRef = useRef([]);
 
   useEffect(() => {
     fetchTechnicianBookings();
+    
+    // Cleanup on unmount
+    return () => {
+      unsubscribersRef.current.forEach(unsubscribe => {
+        if (typeof unsubscribe === 'function') {
+          unsubscribe();
+        }
+      });
+      unsubscribersRef.current = [];
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
+
+  // Refresh bookings when screen is focused
+  useFocusEffect(
+    useCallback(() => {
+      setRefreshing(true);
+      fetchTechnicianBookings();
+    }, [fetchTechnicianBookings])
+  );
 
   const fetchTechnicianBookings = useCallback(async () => {
     if (!user?.id) return;
@@ -34,20 +57,23 @@ export const TechnicianBookingsScreen = ({ navigation }) => {
       setError(null);
       if (!refreshing) setLoading(true);
 
-      // Direct query on bookings collection instead of nested loop
-      // This is O(1) instead of O(n*m)
-      const bookingsRef = collection(db, 'conversations');
-      
+      // Clear old unsubscribers
+      unsubscribersRef.current.forEach(unsubscribe => {
+        if (typeof unsubscribe === 'function') unsubscribe();
+      });
+      unsubscribersRef.current = [];
+
       // Get all conversations for this user
+      const bookingsRef = collection(db, 'conversations');
       const userConversationsQuery = query(
         bookingsRef,
         where('participants', 'array-contains', user.id)
       );
       const conversationsSnap = await getDocs(userConversationsQuery);
       
-      const allBookings = [];
+      let conversationsProcessed = 0;
 
-      // Fetch bookings from each conversation (limited to 20 per conversation for performance)
+      // Set up real-time listeners for each conversation's bookings
       for (const convDoc of conversationsSnap.docs) {
         try {
           const bookingsCollectionRef = collection(db, 'conversations', convDoc.id, 'bookings');
@@ -56,65 +82,90 @@ export const TechnicianBookingsScreen = ({ navigation }) => {
             where('technicianId', '==', user.id),
             limit(20)
           );
-          const bookingsSnap = await getDocs(bookingsQuery);
 
-          for (const bookingDoc of bookingsSnap.docs) {
-            const bookingData = bookingDoc.data();
-            const booking = {
-              id: bookingDoc.id,
-              conversationId: convDoc.id,
-              ...bookingData,
-            };
+          // Set up real-time listener for this conversation's bookings
+          const unsubscribe = onSnapshot(
+            bookingsQuery,
+            async (bookingsSnap) => {
+              const conversationBookings = [];
 
-            // Fetch fresh customer ratings and profile data
-            if (booking.customerId) {
-              try {
-                const customerRef = doc(db, 'users', booking.customerId);
-                const customerSnap = await getDoc(customerRef);
-                if (customerSnap.exists()) {
-                  const customerData = customerSnap.data();
-                  booking.customerName = customerData.name || 'Customer';
-                  booking.customerRating = customerData.rating || 0;
-                  booking.customerReviews = customerData.totalReviews || 0;
-                  booking.customerVerified = customerData.verified || false;
+              for (const bookingDoc of bookingsSnap.docs) {
+                const bookingData = bookingDoc.data();
+                
+                const booking = {
+                  id: bookingDoc.id,
+                  conversationId: convDoc.id,
+                  ...bookingData,
+                };
+
+                // Fetch fresh customer ratings and profile data
+                if (booking.customerId) {
+                  try {
+                    const customerRef = doc(db, 'users', booking.customerId);
+                    const customerSnap = await getDoc(customerRef);
+                    if (customerSnap.exists()) {
+                      const customerData = customerSnap.data();
+                      booking.customerName = customerData.name || 'Customer';
+                      booking.customerRating = customerData.rating || 0;
+                      booking.customerReviews = customerData.totalReviews || 0;
+                      booking.customerVerified = customerData.verified || false;
+                    }
+                  } catch (err) {
+                    console.warn(`Failed to fetch customer data for ${booking.customerId}:`, err);
+                  }
                 }
-              } catch (err) {
-                console.warn(`Failed to fetch customer data for ${booking.customerId}:`, err);
-              }
-            }
 
-            // Fetch fresh service data including ratings
-            if (booking.serviceId) {
-              try {
-                const serviceRef = doc(db, 'services', booking.serviceId);
-                const serviceSnap = await getDoc(serviceRef);
-                if (serviceSnap.exists()) {
-                  const serviceData = serviceSnap.data();
-                  booking.serviceName = serviceData.name || booking.serviceName || 'Service';
-                  booking.serviceRating = serviceData.rating || 0;
-                  booking.serviceReviews = serviceData.reviews || 0;
+                // Fetch fresh service data including ratings
+                if (booking.serviceId) {
+                  try {
+                    const serviceRef = doc(db, 'services', booking.serviceId);
+                    const serviceSnap = await getDoc(serviceRef);
+                    if (serviceSnap.exists()) {
+                      const serviceData = serviceSnap.data();
+                      booking.serviceName = serviceData.title || booking.serviceName || 'Service';
+                      booking.serviceRating = serviceData.rating || 0;
+                      booking.serviceReviews = serviceData.reviews || 0;
+                    }
+                  } catch (err) {
+                    console.warn(`Failed to fetch service data for ${booking.serviceId}:`, err);
+                  }
                 }
-              } catch (err) {
-                console.warn(`Failed to fetch service data for ${booking.serviceId}:`, err);
-              }
-            }
 
-            allBookings.push(booking);
-          }
+                conversationBookings.push(booking);
+              }
+
+              // Update bookings: replace this conversation's bookings
+              setBookings((prevBookings) => {
+                const otherBookings = prevBookings.filter(b => b.conversationId !== convDoc.id);
+                const updated = [...otherBookings, ...conversationBookings];
+                
+                // Sort by scheduled date (newest first)
+                updated.sort((a, b) => {
+                  const dateA = new Date(a.scheduledDate || 0);
+                  const dateB = new Date(b.scheduledDate || 0);
+                  return dateB - dateA;
+                });
+                
+                return updated;
+              });
+            },
+            (error) => {
+              console.error(`Error listening to bookings for conversation ${convDoc.id}:`, error);
+            }
+          );
+
+          unsubscribersRef.current.push(unsubscribe);
+          conversationsProcessed++;
         } catch (err) {
-          console.error(`Error fetching bookings for conversation ${convDoc.id}:`, err);
-          // Continue with other conversations
+          console.error(`Error setting up listener for conversation ${convDoc.id}:`, err);
+          conversationsProcessed++;
         }
       }
 
-      // Sort by scheduled date (newest first)
-      allBookings.sort((a, b) => {
-        const dateA = new Date(a.scheduledDate || 0);
-        const dateB = new Date(b.scheduledDate || 0);
-        return dateB - dateA;
-      });
-
-      setBookings(allBookings);
+      // If no conversations found, just update loading state
+      if (conversationsProcessed === 0 || conversationsSnap.empty) {
+        setLoading(false);
+      }
     } catch (error) {
       console.error('Error fetching technician bookings:', error);
       setError(error.message || 'Failed to load bookings');
@@ -122,7 +173,7 @@ export const TechnicianBookingsScreen = ({ navigation }) => {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [user?.id]);
+  }, [user?.id, refreshing]);
 
   // Handle refresh action
   const handleRefresh = useCallback(() => {
@@ -132,17 +183,21 @@ export const TechnicianBookingsScreen = ({ navigation }) => {
 
   const getFilteredBookings = () => {
     const now = new Date();
+    
     if (activeTab === 'pending') {
-      return bookings.filter(b => b.status === 'pending');
+      const filtered = bookings.filter(b => b.status === 'pending');
+      return filtered;
     } else if (activeTab === 'confirmed') {
-      return bookings.filter(
+      const filtered = bookings.filter(
         b => b.status === 'confirmed' && new Date(b.scheduledDate) >= now
       );
+      return filtered;
     } else {
       // History: completed or past confirmed bookings
-      return bookings.filter(
+      const filtered = bookings.filter(
         b => b.status === 'completed' || b.status === 'cancelled' || (b.status === 'confirmed' && new Date(b.scheduledDate) < now)
       );
+      return filtered;
     }
   };
 
@@ -212,7 +267,7 @@ export const TechnicianBookingsScreen = ({ navigation }) => {
   const handleCancelBooking = useCallback((booking) => {
     Alert.alert(
       'Cancel Booking',
-      'Are you sure you want to cancel this booking?',
+      'Are you sure you want to cancel this booking? Customer refund will be processed based on the cancellation policy.',
       [
         { text: 'No', style: 'cancel' },
         {
@@ -221,11 +276,44 @@ export const TechnicianBookingsScreen = ({ navigation }) => {
           onPress: async () => {
             try {
               const bookingRef = doc(db, 'conversations', booking.conversationId, 'bookings', booking.id);
+              const bookingSnap = await getDoc(bookingRef);
+              const bookingData = bookingSnap.data();
+
               await updateDoc(bookingRef, {
                 status: 'cancelled',
+                cancelledAt: new Date().toISOString(),
               });
+
+              // Process refund if payment exists
+              if (bookingData?.paymentId) {
+                try {
+                  const refundResult = await processRefundRequest(
+                    bookingData.paymentId,
+                    {
+                      reason: 'Booking cancelled by technician',
+                      bookingId: booking.id,
+                      conversationId: booking.conversationId,
+                    }
+                  );
+
+                  // Dismiss loading alert
+                  Alert.alert(
+                    'Booking Cancelled',
+                    `Refund initiated successfully!\n\nAmount: ₹${refundResult.refundAmount}\nStatus: ${refundResult.message}`
+                  );
+                } catch (refundError) {
+                  console.warn('Refund processing error:', refundError.message);
+                  // Even if refund fails, booking is cancelled
+                  Alert.alert(
+                    'Booking Cancelled',
+                    'Booking cancelled. Note: Refund processing encountered an issue. Customer will be notified.'
+                  );
+                }
+              } else {
+                Alert.alert('Success', 'Booking cancelled successfully');
+              }
+
               await fetchTechnicianBookings();
-              Alert.alert('Success', 'Booking cancelled successfully');
             } catch (error) {
               console.error('Error cancelling booking:', error);
               setError(error.message || 'Failed to cancel booking');
@@ -281,7 +369,7 @@ export const TechnicianBookingsScreen = ({ navigation }) => {
 
         <View style={styles.detailRow}>
           <Text style={styles.detailLabel}>Amount</Text>
-          <Text style={styles.priceValue}>₹{Math.round(item.estimatedPrice * 1.1)}</Text>
+          <Text style={styles.priceValue}>₹{item.estimatedPrice}</Text>
         </View>
 
         {item.description && (
@@ -354,7 +442,54 @@ export const TechnicianBookingsScreen = ({ navigation }) => {
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <View style={styles.header}>
         <Text style={styles.headerTitle}>My Bookings</Text>
+        <TouchableOpacity
+          style={styles.menuIconButton}
+          onPress={() => setShowMenu(!showMenu)}
+        >
+          <Text style={styles.menuIcon}>☰</Text>
+        </TouchableOpacity>
       </View>
+
+      {showMenu && (
+        <View style={styles.menu}>
+          <TouchableOpacity 
+            style={styles.menuItem}
+            onPress={() => {
+              navigation.navigate('Home');
+              setShowMenu(false);
+            }}
+          >
+            <Text style={styles.menuItemText}>🏠 Home</Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={styles.menuItem}
+            onPress={() => {
+              navigation.navigate('Messages');
+              setShowMenu(false);
+            }}
+          >
+            <Text style={styles.menuItemText}>💬 Messages</Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={styles.menuItem}
+            onPress={() => {
+              navigation.navigate('MyServices');
+              setShowMenu(false);
+            }}
+          >
+            <Text style={styles.menuItemText}>📋 My Services</Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={styles.menuItem}
+            onPress={() => {
+              navigation.navigate('Profile');
+              setShowMenu(false);
+            }}
+          >
+            <Text style={styles.menuItemText}>✏️ Edit Profile</Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
       <View style={styles.tabContainer}>
         <TouchableOpacity
@@ -441,6 +576,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#f5f5f5',
   },
   header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     backgroundColor: '#fff',
     paddingHorizontal: 15,
     paddingVertical: 15,
@@ -451,6 +589,34 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: 'bold',
     color: '#333',
+    flex: 1,
+  },
+  menuIconButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  menuIcon: {
+    fontSize: 24,
+    color: '#333',
+  },
+  menu: {
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
+    paddingVertical: 5,
+  },
+  menuItem: {
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  menuItemText: {
+    fontSize: 16,
+    color: '#333',
+    fontWeight: '500',
   },
   tabContainer: {
     flexDirection: 'row',

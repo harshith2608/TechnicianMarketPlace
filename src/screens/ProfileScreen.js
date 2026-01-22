@@ -1,4 +1,3 @@
-import * as ImagePicker from 'expo-image-picker';
 import { getDownloadURL, ref, uploadBytes } from 'firebase/storage';
 import { useState } from 'react';
 import {
@@ -19,6 +18,15 @@ import { storage } from '../config/firebase';
 import { updateProfile } from '../redux/authSlice';
 import { resetPhoneAuth } from '../redux/phoneAuthSlice';
 
+// Lazy load ImagePicker to avoid native module loading issues
+let ImagePicker = null;
+const loadImagePicker = async () => {
+  if (!ImagePicker) {
+    ImagePicker = await import('expo-image-picker');
+  }
+  return ImagePicker;
+};
+
 export const ProfileScreen = ({ navigation }) => {
   const insets = useSafeAreaInsets();
   const user = useSelector((state) => state.auth.user);
@@ -35,7 +43,8 @@ export const ProfileScreen = ({ navigation }) => {
 
   const handlePickProfilePicture = async () => {
     try {
-      const result = await ImagePicker.launchImageLibraryAsync({
+      const picker = await loadImagePicker();
+      const result = await picker.launchImageLibraryAsync({
         mediaTypes: ['images'],
         allowsEditing: true,
         aspect: [1, 1],

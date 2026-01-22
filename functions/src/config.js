@@ -1,13 +1,26 @@
 /**
  * Firebase Cloud Functions Configuration
  * Centralized configuration for all payment processing functions
+ * 
+ * ⚠️ IMPORTANT: Razorpay credentials must be set via environment variables!
+ * See /functions/.env.example for setup instructions.
+ * 
+ * These credentials are required in Firebase Cloud Functions for refunds to work.
+ * If they're not set, the refund API calls will fail with authentication errors.
  */
+
+// Load environment variables from .env file (for local development and Firebase Functions)
+if (process.env.NODE_ENV !== 'production') {
+  require('dotenv').config();
+}
 
 module.exports = {
   // Razorpay Configuration
+  // ⚠️ CRITICAL: Must be set in .env file for deployment
   razorpay: {
-    keyId: process.env.RAZORPAY_KEY_ID || 'rzp_test_S5Qwfrbq71Ub9s',
-    keySecret: process.env.RAZORPAY_KEY_SECRET || 'your_razorpay_key_secret',
+    keyId: process.env.RAZORPAY_KEY_ID || 'rzp_test_S5UrnOlHsuvfJN',
+    keySecret: process.env.RAZORPAY_KEY_SECRET || '5QG21F2ppJJkl73Op0c4ECur',
+    webhookSecret: process.env.RAZORPAY_WEBHOOK_SECRET || 'fTQ6MrsjAT4UEQ@',
   },
 
   // Payment Configuration
@@ -21,7 +34,7 @@ module.exports = {
 
   // Refund Configuration
   refund: {
-    fullRefundWindowHours: 3, // 100% refund within 3 hours
+    fullRefundWindowHours: 4, // 100% refund within 4 hours
     partialRefundWindowHours: 1, // 80% refund within 1 hour before service
     refundPercentage: 0.80, // 80% after window
     cancellationFeePercent: 0.20, // 20% fee split

@@ -1,16 +1,16 @@
 {
   "expo": {
-    "name": "TechnicianMarketPlace",
-    "slug": "TechnicianMarketPlace",
+    "name": "FixBolt",
+    "slug": "fixbolt",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "technicianmarketplace",
+    "scheme": "fixbolt",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.technicianmarketplace.app"
+      "bundleIdentifier": "com.fixbolt.app"
     },
     "android": {
       "adaptiveIcon": {
@@ -20,7 +20,8 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.fixbolt.app"
     },
     "web": {
       "output": "static",
@@ -32,11 +33,12 @@
         "expo-splash-screen",
         {
           "image": "./assets/images/splash-icon.png",
-          "imageWidth": 200,
+          "imageWidth": 240,
           "resizeMode": "contain",
-          "backgroundColor": "#ffffff",
+          "backgroundColor": "#0066FF",
           "dark": {
-            "backgroundColor": "#000000"
+            "image": "./assets/images/splash-icon.png",
+            "backgroundColor": "#003D99"
           }
         }
       ]

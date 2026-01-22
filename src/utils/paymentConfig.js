@@ -1,13 +1,18 @@
 /**
  * Payment Configuration
- * Centralized payment settings for TechnicianMarketPlace
+ * Centralized payment settings for FixBolt
  * 
  * Commission: 10% with ₹200 cap per transaction
  * Refund Policy: Time-based with partial fees
  * Payout: Weekly for technicians
  */
 
+// Load Razorpay key from environment
+const RAZORPAY_KEY_ID = process.env.EXPO_PUBLIC_RAZORPAY_KEY_ID || '';
+
 export const PAYMENT_CONFIG = {
+  // ====== RAZORPAY API KEY ======
+  RAZORPAY_KEY_ID,
   // ====== COMMISSION SETTINGS ======
   // Commission calculation: min(10% of booking, ₹200)
   COMMISSION_RATE: 0.10, // 10%
@@ -19,11 +24,11 @@ export const PAYMENT_CONFIG = {
   
   // ====== REFUND POLICY (TIME-BASED) ======
   REFUND_POLICY: {
-    // Full refund: 0-3 hours after booking
-    FULL_REFUND_WINDOW_HOURS: 3,
+    // Full refund: 0-4 hours after booking
+    FULL_REFUND_WINDOW_HOURS: 4,
     FULL_REFUND_PERCENT: 1.0, // 100%
     
-    // Partial refund: 3 hours to 1 hour before service
+    // Partial refund: 4 hours to 1 hour before service
     // 80% to customer, 20% cancellation fee split 50/50
     PARTIAL_REFUND_WINDOW_HOURS: 1, // 1 hour before service
     PARTIAL_REFUND_PERCENT: 0.80, // 80% to customer

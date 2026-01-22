@@ -15,18 +15,40 @@ export const createService = createAsyncThunk(
         for (let i = 0; i < images.length; i++) {
           const image = images[i];
           try {
-            // Convert URI to blob
-            const response = await fetch(image.uri);
+            console.log(`Uploading image ${i}:`, image.uri);
+            
+            // Convert URI to blob with timeout
+            let response;
+            try {
+              response = await Promise.race([
+                fetch(image.uri),
+                new Promise((_, reject) => 
+                  setTimeout(() => reject(new Error('Image fetch timeout')), 30000)
+                )
+              ]);
+            } catch (fetchErr) {
+              console.error(`Error fetching image ${i}:`, fetchErr);
+              continue; // Skip this image and move to next
+            }
+            
+            if (!response.ok) {
+              console.error(`Image fetch returned status ${response.status}`);
+              continue;
+            }
+            
             const blob = await response.blob();
+            console.log(`Blob created for image ${i}, size:`, blob.size);
             
             // Create unique filename
             const fileName = `${userId}/${Date.now()}_${i}.jpg`;
             const storageRef = ref(storage, `service-images/${fileName}`);
             
+            console.log(`Uploading to Firebase: ${fileName}`);
             // Upload to Firebase Storage
             await uploadBytes(storageRef, blob);
             const downloadUrl = await getDownloadURL(storageRef);
             
+            console.log(`Image ${i} uploaded successfully:`, downloadUrl);
             imageUrls.push(downloadUrl);
             
             // Set first image as main image
@@ -35,6 +57,7 @@ export const createService = createAsyncThunk(
             }
           } catch (uploadError) {
             console.error(`Error uploading image ${i}:`, uploadError);
+            // Continue with other images even if one fails
           }
         }
       }
@@ -67,6 +90,7 @@ export const createService = createAsyncThunk(
         technicianName,
         imageUrls: imageUrls,
         createdAt: createdAtDate.toISOString(),
+        updatedAt: createdAtDate.toISOString(),
         rating: 0,
         reviewCount: 0,
       };
@@ -203,7 +227,13 @@ export const updateService = createAsyncThunk(
 
       return {
         id: serviceId,
-        ...updateData,
+        title,
+        description,
+        category,
+        price: price ? parseFloat(price) : undefined,
+        imageUrl,
+        imageUrls: imageUrls.length > 0 ? imageUrls : undefined,
+        updatedAt: new Date().toISOString(),
       };
     } catch (error) {
       return rejectWithValue(error.message);
@@ -456,7 +486,14 @@ const serviceSlice = createSlice({
         state.loading = false;
         const index = state.userServices.findIndex((s) => s.id === action.payload.id);
         if (index !== -1) {
-          state.userServices[index] = { ...state.userServices[index], ...action.payload };
+          const updated = { ...state.userServices[index] };
+          // Only update provided fields, clean up undefined values
+          Object.keys(action.payload).forEach((key) => {
+            if (action.payload[key] !== undefined) {
+              updated[key] = action.payload[key];
+            }
+          });
+          state.userServices[index] = updated;
         }
         state.error = null;
       })

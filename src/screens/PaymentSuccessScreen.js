@@ -102,7 +102,7 @@ export const PaymentSuccessScreen = ({ route, navigation }) => {
               {/* Service */}
               <View style={styles.detailRow}>
                 <Text style={styles.detailLabel}>Service</Text>
-                <Text style={styles.detailValue}>{service?.name || 'Service'}</Text>
+                <Text style={styles.detailValue}>{service?.title || 'Service'}</Text>
               </View>
               <View style={styles.divider} />
 
@@ -136,7 +136,7 @@ export const PaymentSuccessScreen = ({ route, navigation }) => {
               {/* Price */}
               <View style={styles.priceRow}>
                 <Text style={styles.detailLabel}>Total Amount</Text>
-                <Text style={styles.priceValue}>₹{Math.round(booking.estimatedPrice * 1.1)}</Text>
+                <Text style={styles.priceValue}>₹{booking.estimatedPrice}</Text>
               </View>
             </View>
           </View>

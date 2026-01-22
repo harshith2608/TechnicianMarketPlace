@@ -23,16 +23,21 @@ const razorpay = new Razorpay({
 });
 
 /**
- * FUNCTION 4: Process Refund
+ * FUNCTION 4: Process Refund (Webhook-based)
  * Called from: Booking screen when customer cancels
  * Input: paymentId, reason
- * Output: { success, refundDetails }
+ * Output: { success, message } - refund initiation only
+ * 
+ * ARCHITECTURE:
+ * 1. This function initiates refund on Razorpay (fire-and-forget)
+ * 2. Razorpay webhook handles refund completion
+ * 3. Webhook updates booking status to "refunded"
  */
 exports.processRefund = functions
-  .runWith({ timeoutSeconds: config.timeouts.refundPayment })
+  .runWith({ timeoutSeconds: 15 })
   .https.onCall(async (data, context) => {
     try {
-      console.log('🔵 STEP 3: Processing refund');
+      console.log('🔵 STEP 3: Initiating refund via Razorpay');
 
       if (!context.auth) {
         throw new Error('User must be authenticated');
@@ -61,119 +66,61 @@ exports.processRefund = functions
         throw new Error(`Cannot refund payment with status: ${payment.status}`);
       }
 
-      console.log(`✓ Payment found: ${paymentId}, Amount: ${payment.amount}`);
+      console.log(`✓ Payment found: ${paymentId}, Amount: ₹${payment.amount}`);
 
-      // Calculate refund based on time
+      // Calculate refund amount based on time
       const refundCalculation = calculateRefund(
         payment.amount,
         payment.capturedAt || payment.createdAt,
         new Date()
       );
 
-      console.log(`💰 Refund calculation: ${JSON.stringify(refundCalculation)}`);
+      console.log(`💰 Refund amount: ₹${refundCalculation.customerRefund}`);
 
       // Check if refund is possible
       if (refundCalculation.customerRefund === 0) {
         throw new Error(refundCalculation.reason);
       }
 
-      // Process refund with Razorpay (3 retries)
-      const razorpayRefund = await retryWithBackoff(
-        async () => {
-          return await razorpay.payments.refund(payment.razorpayPaymentId, {
-            amount: refundCalculation.customerRefund * 100, // Convert to paise
-            notes: {
-              reason,
-              paymentId,
-              refundType: refundCalculation.refundType,
-            },
-          });
+      // Initiate refund on Razorpay (fire-and-forget)
+      console.log(`📤 Initiating refund on Razorpay: ₹${refundCalculation.customerRefund}`);
+      const razorpayRefund = await razorpay.payments.refund(payment.razorpayPaymentId, {
+        amount: refundCalculation.customerRefund * 100, // Convert to paise
+        notes: {
+          reason,
+          paymentId,
+          bookingId: payment.bookingId,
+          customerId: payment.customerId,
+          refundType: refundCalculation.refundType,
         },
-        config.retry.maxAttempts
-      );
-
-      console.log(`✓ Razorpay refund processed: ${razorpayRefund.id}`);
-
-      // Create refund record
-      const refundRecord = createRefundRecord(paymentId, {
-        razorpayRefundId: razorpayRefund.id,
-        customerId: payment.customerId,
-        technicianId: payment.technicianId,
-        amount: refundCalculation.customerRefund,
-        status: 'completed',
-      }, refundCalculation);
-
-      // Save refund record
-      await admin
-        .firestore()
-        .collection(config.firestore.refunds)
-        .doc(refundRecord.id)
-        .set(refundRecord);
-
-      console.log(`✓ Refund record created: ${refundRecord.id}`);
-
-      // Update payment status
-      await paymentDoc.ref.update({
-        status: 'refunded',
-        refundId: refundRecord.id,
-        refundedAt: new Date(),
-        updatedAt: new Date(),
       });
 
-      // Update technician's earnings (deduct if refund was partial)
-      if (refundCalculation.technicianCompensation > 0) {
+      console.log(`✓ Refund initiated: ${razorpayRefund.id} (Status: ${razorpayRefund.status})`);
+
+      // Mark booking as refunding (waiting for webhook confirmation)
+      if (payment.bookingId) {
         await admin
           .firestore()
-          .collection(config.firestore.users)
-          .doc(payment.technicianId)
+          .collection(config.firestore.bookings)
+          .doc(payment.bookingId)
           .update({
-            pendingPayout: admin.firestore.FieldValue.increment(
-              refundCalculation.technicianCompensation
-            ),
-            updatedAt: new Date(),
+            paymentStatus: 'refunding',
+            refundInitiatedAt: admin.firestore.FieldValue.serverTimestamp(),
+            razorpayRefundId: razorpayRefund.id,
           });
-
-        console.log(
-          `✓ Technician compensated: ₹${refundCalculation.technicianCompensation}`
-        );
-      } else {
-        // Full refund - deduct entire earnings
-        await admin
-          .firestore()
-          .collection(config.firestore.users)
-          .doc(payment.technicianId)
-          .update({
-            pendingPayout: admin.firestore.FieldValue.increment(
-              -payment.technicianEarnings
-            ),
-            totalEarnings: admin.firestore.FieldValue.increment(
-              -payment.technicianEarnings
-            ),
-            updatedAt: new Date(),
-          });
-
-        console.log(`✓ Technician earnings deducted: ₹${payment.technicianEarnings}`);
+        console.log(`✓ Booking marked as refunding: ${payment.bookingId}`);
       }
 
-      // Send refund notification
-      await sendRefundNotification(payment.customerId, {
-        refundAmount: refundCalculation.customerRefund,
-        reason: refundCalculation.reason,
-        transactionId: paymentId,
-        estimatedDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000)
-          .toLocaleDateString('en-IN'),
-      });
-
+      // Return success immediately (actual refund completion handled by webhook)
       return {
         success: true,
-        refundId: refundRecord.id,
-        customerRefund: refundCalculation.customerRefund,
-        technicianCompensation: refundCalculation.technicianCompensation,
-        platformFee: refundCalculation.platformFee,
-        reason: refundCalculation.reason,
+        refundId: razorpayRefund.id,
+        message: 'Refund initiated. Status will update when Razorpay confirms.',
+        refundAmount: refundCalculation.customerRefund,
+        estimatedDays: 3,
       };
     } catch (error) {
-      console.error('❌ Error in processRefund:', error);
+      console.error('❌ Error initiating refund:', error);
       throw new functions.https.HttpsError('internal', error.message);
     }
   });

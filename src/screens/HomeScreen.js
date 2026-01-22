@@ -279,6 +279,17 @@ export const HomeScreen = ({ navigation }) => {
             >
               <Text style={styles.menuItemText}>📋 Manage Services</Text>
             </TouchableOpacity>
+            {user?.role === 'technician' && (
+              <TouchableOpacity 
+                style={styles.menuItem}
+                onPress={() => {
+                  navigation.navigate('PayoutSettings');
+                  setShowMenu(false);
+                }}
+              >
+                <Text style={styles.menuItemText}>💰 Earnings & Payouts</Text>
+              </TouchableOpacity>
+            )}
             <TouchableOpacity 
               style={styles.menuItem}
               onPress={() => {
@@ -324,7 +335,14 @@ export const HomeScreen = ({ navigation }) => {
               onPress={() => navigation.navigate('Services')}
             >
               <Text style={styles.quickActionIcon}>📋</Text>
-              <Text style={styles.quickActionText}>Manage Services</Text>
+              <Text style={styles.quickActionText}>Services</Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={styles.quickActionButton}
+              onPress={() => navigation.navigate('PayoutSettings')}
+            >
+              <Text style={styles.quickActionIcon}>💰</Text>
+              <Text style={styles.quickActionText}>Earnings</Text>
             </TouchableOpacity>
             <TouchableOpacity 
               style={styles.quickActionButton}

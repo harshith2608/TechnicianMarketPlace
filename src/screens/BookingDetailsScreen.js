@@ -58,11 +58,12 @@ const BookingDetailsScreen = ({ route, navigation }) => {
               const result = await processRefundRequest(booking.paymentId, {
                 reason: 'Customer initiated refund',
                 bookingId,
+                conversationId: booking.conversationId,
               });
               
               Alert.alert(
                 'Refund Requested',
-                `Refund of ₹${result.customerRefund} will be processed within 3-5 days`
+                `Refund of ₹${result.refundAmount} has been initiated. Status will update within 3-5 days.`
               );
               
               // Reload booking details

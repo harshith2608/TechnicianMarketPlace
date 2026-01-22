@@ -1,5 +1,6 @@
-import { collection, doc, getDoc, getDocs, query, updateDoc, where } from 'firebase/firestore';
-import { useEffect, useState } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
+import { collection, doc, getDoc, getDocs, onSnapshot, query, updateDoc, where } from 'firebase/firestore';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
@@ -12,6 +13,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSelector } from 'react-redux';
 import { db } from '../config/firebase';
+import { processRefundRequest } from '../services/bookingService';
 
 export const BookingsScreen = ({ navigation }) => {
   const insets = useSafeAreaInsets();
@@ -20,12 +22,32 @@ export const BookingsScreen = ({ navigation }) => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState('upcoming'); // 'upcoming' or 'past'
+  const [showMenu, setShowMenu] = useState(false);
+  const unsubscribersRef = useRef([]);
 
   useEffect(() => {
     fetchBookings();
+    
+    // Cleanup on unmount
+    return () => {
+      unsubscribersRef.current.forEach(unsubscribe => {
+        if (typeof unsubscribe === 'function') {
+          unsubscribe();
+        }
+      });
+      unsubscribersRef.current = [];
+    };
   }, [user?.id]);
 
-  const fetchBookings = async () => {
+  // Refresh bookings when screen is focused
+  useFocusEffect(
+    useCallback(() => {
+      setRefreshing(true);
+      fetchBookings();
+    }, [fetchBookings])
+  );
+
+  const fetchBookings = useCallback(async () => {
     try {
       // Don't fetch if user is not loaded yet
       if (!user?.id) {
@@ -34,7 +56,12 @@ export const BookingsScreen = ({ navigation }) => {
       }
 
       if (!refreshing) setLoading(true);
-      const allBookings = [];
+
+      // Clear old unsubscribers
+      unsubscribersRef.current.forEach(unsubscribe => {
+        if (typeof unsubscribe === 'function') unsubscribe();
+      });
+      unsubscribersRef.current = [];
 
       // Get all conversations for the user
       const conversationsRef = collection(db, 'conversations');
@@ -44,76 +71,102 @@ export const BookingsScreen = ({ navigation }) => {
       );
       const conversationsSnapshot = await getDocs(conversationsQuery);
 
-      // For each conversation, get bookings
+      let conversationsProcessed = 0;
+
+      // For each conversation, set up real-time listener for bookings
       for (const convDoc of conversationsSnapshot.docs) {
-        const bookingsRef = collection(db, 'conversations', convDoc.id, 'bookings');
-        const bookingsSnapshot = await getDocs(bookingsRef);
+        try {
+          const bookingsRef = collection(db, 'conversations', convDoc.id, 'bookings');
+          
+          // Set up real-time listener for this conversation's bookings
+          const unsubscribe = onSnapshot(
+            bookingsRef,
+            async (bookingsSnapshot) => {
+              const conversationBookings = [];
 
-        for (const bookingDoc of bookingsSnapshot.docs) {
-          const bookingData = bookingDoc.data();
-          const isCustomer = bookingData.customerId === user.id;
-          const isTechnician = bookingData.technicianId === user.id;
+              for (const bookingDoc of bookingsSnapshot.docs) {
+                const bookingData = bookingDoc.data();
+                const isCustomer = bookingData.customerId === user.id;
+                const isTechnician = bookingData.technicianId === user.id;
 
-          // Only show relevant bookings
-          if (isCustomer || isTechnician) {
-            allBookings.push({
-              id: bookingDoc.id,
-              conversationId: convDoc.id,
-              ...bookingData,
-              isCustomer,
-              isTechnician,
-            });
-          }
-        }
-      }
+                // Only show relevant bookings
+                if (isCustomer || isTechnician) {
+                  const booking = {
+                    id: bookingDoc.id,
+                    conversationId: convDoc.id,
+                    ...bookingData,
+                    isCustomer,
+                    isTechnician,
+                  };
 
-      // Sort by scheduled date
-      allBookings.sort((a, b) => {
-        return new Date(b.scheduledDate) - new Date(a.scheduledDate);
-      });
+                  // Fetch service name if not already stored
+                  if (!booking.serviceName && booking.serviceId) {
+                    try {
+                      const serviceRef = doc(db, 'services', booking.serviceId);
+                      const serviceDoc = await getDoc(serviceRef);
+                      if (serviceDoc.exists()) {
+                        booking.serviceName = serviceDoc.data().title || 'Service Booking';
+                      } else {
+                        booking.serviceName = 'Service Booking';
+                      }
+                    } catch (err) {
+                      booking.serviceName = 'Service Booking';
+                    }
+                  } else if (!booking.serviceName) {
+                    booking.serviceName = 'Service Booking';
+                  }
 
-      // Fetch service names for all bookings
-      for (let i = 0; i < allBookings.length; i++) {
-        // First check if serviceName is already stored in booking
-        if (allBookings[i].serviceName) {
-          // Already has service name, keep it
-          continue;
-        }
-        
-        // If not, try to fetch from services collection
-        if (allBookings[i].serviceId) {
-          try {
-            const serviceRef = doc(db, 'services', allBookings[i].serviceId);
-            const serviceDoc = await getDoc(serviceRef);
-            if (serviceDoc.exists()) {
-              allBookings[i].serviceName = serviceDoc.data().name || 'Service Booking';
-            } else {
-              allBookings[i].serviceName = 'Service Booking';
+                  conversationBookings.push(booking);
+                }
+              }
+
+              // Update bookings: replace this conversation's bookings
+              setBookings((prevBookings) => {
+                const otherBookings = prevBookings.filter(b => b.conversationId !== convDoc.id);
+                const updated = [...otherBookings, ...conversationBookings];
+                
+                // Sort by scheduled date
+                updated.sort((a, b) => {
+                  return new Date(b.scheduledDate) - new Date(a.scheduledDate);
+                });
+                
+                return updated;
+              });
+            },
+            (error) => {
+              console.error(`Error listening to bookings for conversation ${convDoc.id}:`, error);
             }
-          } catch (err) {
-            // Silently fail - service name not critical
-            allBookings[i].serviceName = 'Service Booking';
-          }
-        } else {
-          allBookings[i].serviceName = 'Service Booking';
+          );
+
+          unsubscribersRef.current.push(unsubscribe);
+          conversationsProcessed++;
+        } catch (err) {
+          console.error(`Error setting up listener for conversation ${convDoc.id}:`, err);
+          conversationsProcessed++;
         }
       }
 
-      setBookings(allBookings);
+      // If no conversations found, just update loading state
+      if (conversationsProcessed === 0 || conversationsSnapshot.empty) {
+        setLoading(false);
+      }
     } catch (error) {
       console.error('Error fetching bookings:', error);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, [user?.id, refreshing]);
 
   const getFilteredBookings = () => {
     const now = new Date();
+    
     if (activeTab === 'upcoming') {
-      return bookings.filter(b => new Date(b.scheduledDate) >= now);
+      const filtered = bookings.filter(b => new Date(b.scheduledDate) >= now);
+      return filtered;
     } else {
-      return bookings.filter(b => new Date(b.scheduledDate) < now);
+      const filtered = bookings.filter(b => new Date(b.scheduledDate) < now);
+      return filtered;
     }
   };
 
@@ -150,7 +203,7 @@ export const BookingsScreen = ({ navigation }) => {
   const handleCancelBooking = (booking) => {
     Alert.alert(
       'Cancel Booking',
-      'Are you sure you want to cancel this booking?',
+      'Are you sure you want to cancel this booking? A refund will be processed based on the cancellation policy.',
       [
         { text: 'No', style: 'cancel' },
         {
@@ -158,16 +211,52 @@ export const BookingsScreen = ({ navigation }) => {
           style: 'destructive',
           onPress: async () => {
             try {
+              // First, get the payment ID for this booking
               const bookingRef = doc(db, 'conversations', booking.conversationId, 'bookings', booking.id);
+              const bookingSnap = await getDoc(bookingRef);
+              const bookingData = bookingSnap.data();
+              
+              // Update booking status to cancelled
               await updateDoc(bookingRef, {
                 status: 'cancelled',
+                cancelledAt: new Date().toISOString(),
               });
+
+              // Process refund if payment exists
+              if (bookingData?.paymentId) {
+                try {
+                  const refundResult = await processRefundRequest(
+                    bookingData.paymentId,
+                    {
+                      reason: 'Customer cancelled booking',
+                      bookingId: booking.id,
+                      conversationId: booking.conversationId,
+                    }
+                  );
+
+                  // Dismiss loading alert
+                  Alert.alert(
+                    'Booking Cancelled',
+                    `Refund initiated successfully!\n\nAmount: ₹${refundResult.refundAmount}\nStatus: ${refundResult.message}`
+                  );
+                } catch (refundError) {
+                  console.warn('Refund processing error:', refundError.message);
+                  // Even if refund fails, booking is cancelled
+                  Alert.alert(
+                    'Booking Cancelled',
+                    'Booking cancelled. Note: Refund processing encountered an issue. Please contact support if refund is not received within 3-5 business days.'
+                  );
+                }
+              } else {
+                // No payment ID, just show success
+                Alert.alert('Success', 'Booking cancelled successfully');
+              }
+
               // Refresh bookings
               fetchBookings();
-              Alert.alert('Success', 'Booking cancelled successfully');
             } catch (error) {
               console.error('Error cancelling booking:', error);
-              Alert.alert('Error', 'Failed to cancel booking');
+              Alert.alert('Error', 'Failed to cancel booking: ' + error.message);
             }
           },
         },
@@ -184,13 +273,39 @@ export const BookingsScreen = ({ navigation }) => {
       <View style={styles.bookingHeader}>
         <View style={styles.bookingTitleSection}>
           <Text style={styles.bookingTitle}>Booking #{item.id.substring(0, 8)}</Text>
-          <View
-            style={[
-              styles.statusBadge,
-              { backgroundColor: getStatusColor(item.status) },
-            ]}
-          >
-            <Text style={styles.statusText}>{item.status.toUpperCase()}</Text>
+          <View style={styles.statusBadgesContainer}>
+            {/* Booking Status Badge */}
+            <View
+              style={[
+                styles.statusBadge,
+                styles.bookingStatusBadge,
+                { backgroundColor: getStatusColor(item.status) },
+              ]}
+            >
+              <Text style={styles.statusLabel}>Status</Text>
+              <Text style={styles.statusText}>{item.status.toUpperCase()}</Text>
+            </View>
+            
+            {/* Payment Status Badge */}
+            {item.paymentStatus && (
+              <View
+                style={[
+                  styles.statusBadge,
+                  styles.paymentStatusBadge,
+                  {
+                    backgroundColor:
+                      item.paymentStatus === 'refunded'
+                        ? '#28a745'
+                        : item.paymentStatus === 'refunding'
+                        ? '#FFC107'
+                        : '#6c757d',
+                  },
+                ]}
+              >
+                <Text style={styles.statusLabel}>Payment</Text>
+                <Text style={styles.statusText}>{item.paymentStatus.toUpperCase()}</Text>
+              </View>
+            )}
           </View>
         </View>
         <TouchableOpacity
@@ -236,7 +351,7 @@ export const BookingsScreen = ({ navigation }) => {
 
         <View style={styles.detailRow}>
           <Text style={styles.detailLabel}>Amount</Text>
-          <Text style={styles.priceValue}>₹{Math.round(item.estimatedPrice * 1.1)}</Text>
+          <Text style={styles.priceValue}>₹{item.estimatedPrice}</Text>
         </View>
 
         {item.description && (
@@ -292,8 +407,54 @@ export const BookingsScreen = ({ navigation }) => {
         <Text style={styles.headerTitle}>
           {user?.role === 'technician' ? 'Bookings' : 'My Bookings'}
         </Text>
-        <View style={styles.headerPlaceholder} />
+        <TouchableOpacity
+          style={styles.menuIconButton}
+          onPress={() => setShowMenu(!showMenu)}
+        >
+          <Text style={styles.menuIcon}>☰</Text>
+        </TouchableOpacity>
       </View>
+
+      {showMenu && (
+        <View style={styles.menu}>
+          <TouchableOpacity 
+            style={styles.menuItem}
+            onPress={() => {
+              navigation.navigate('Home');
+              setShowMenu(false);
+            }}
+          >
+            <Text style={styles.menuItemText}>🏠 Home</Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={styles.menuItem}
+            onPress={() => {
+              navigation.navigate('Messages');
+              setShowMenu(false);
+            }}
+          >
+            <Text style={styles.menuItemText}>💬 Messages</Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={styles.menuItem}
+            onPress={() => {
+              navigation.navigate('Services');
+              setShowMenu(false);
+            }}
+          >
+            <Text style={styles.menuItemText}>📋 Services</Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={styles.menuItem}
+            onPress={() => {
+              navigation.navigate('Profile');
+              setShowMenu(false);
+            }}
+          >
+            <Text style={styles.menuItemText}>✏️ Edit Profile</Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
       {/* Tabs */}
       <View style={styles.tabContainer}>
@@ -379,6 +540,33 @@ const styles = StyleSheet.create({
   headerPlaceholder: {
     width: 28,
   },
+  menuIconButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  menuIcon: {
+    fontSize: 24,
+    color: '#333',
+  },
+  menu: {
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
+    paddingVertical: 5,
+  },
+  menuItem: {
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  menuItemText: {
+    fontSize: 16,
+    color: '#333',
+    fontWeight: '500',
+  },
   tabContainer: {
     flexDirection: 'row',
     backgroundColor: '#fff',
@@ -439,16 +627,39 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#333',
   },
+  statusBadgesContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 8,
+  },
   statusBadge: {
     alignSelf: 'flex-start',
     paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingVertical: 8,
     borderRadius: 6,
+  },
+  bookingStatusBadge: {
+    borderLeftWidth: 3,
+    borderLeftColor: 'rgba(255, 255, 255, 0.6)',
+  },
+  paymentStatusBadge: {
+    borderLeftWidth: 3,
+    borderLeftColor: 'rgba(255, 255, 255, 0.6)',
+    opacity: 0.9,
+  },
+  statusLabel: {
+    color: 'rgba(255, 255, 255, 0.7)',
+    fontSize: 8,
+    fontWeight: '500',
+    marginBottom: 2,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   statusText: {
     color: '#fff',
-    fontSize: 10,
-    fontWeight: '600',
+    fontSize: 11,
+    fontWeight: '700',
   },
   contactButton: {
     fontSize: 24,

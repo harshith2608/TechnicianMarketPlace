@@ -65,7 +65,7 @@ const ServiceCompletionScreen = () => {
           const serviceRef = doc(db, 'services', enhanced.serviceId);
           const serviceDoc = await getDoc(serviceRef);
           if (serviceDoc.exists()) {
-            enhanced.serviceName = serviceDoc.data().name || 'N/A';
+            enhanced.serviceName = serviceDoc.data().title || 'N/A';
           } else {
             console.warn('Service document does not exist:', enhanced.serviceId);
           }
@@ -117,9 +117,15 @@ const ServiceCompletionScreen = () => {
           technicianId: booking.technicianId
         };
 
-        // Only add paymentId if it exists
+        // Only add payment info if it exists
         if (booking.paymentId) {
           params.paymentId = booking.paymentId;
+        }
+        if (booking.razorpaySignature) {
+          params.razorpaySignature = booking.razorpaySignature;
+        }
+        if (booking.razorpayOrderId) {
+          params.razorpayOrderId = booking.razorpayOrderId;
         }
 
         const result = await dispatch(
@@ -139,6 +145,13 @@ const ServiceCompletionScreen = () => {
 
   const handleCancel = () => {
     setShowConfirmation(false);
+  };
+
+  const handleGoHome = () => {
+    navigation.reset({
+      index: 0,
+      routes: [{ name: 'Home' }],
+    });
   };
 
   return (
@@ -234,6 +247,14 @@ const ServiceCompletionScreen = () => {
         ) : (
           <Text style={styles.buttonText}>✅ Mark Work Completed</Text>
         )}
+      </TouchableOpacity>
+
+      {/* Go to Home Button */}
+      <TouchableOpacity
+        style={[styles.button, styles.homeButton]}
+        onPress={handleGoHome}
+      >
+        <Text style={styles.homeButtonText}>🏠 Go to Home</Text>
       </TouchableOpacity>
 
       {/* Confirmation Dialog */}
@@ -372,9 +393,18 @@ const styles = StyleSheet.create({
     backgroundColor: '#34C759',
     marginTop: 20
   },
+  homeButton: {
+    backgroundColor: '#007AFF',
+    marginTop: 12
+  },
   buttonText: {
     fontSize: 16,
     fontWeight: '700',
+    color: '#FFF'
+  },
+  homeButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
     color: '#FFF'
   },
   overlay: {

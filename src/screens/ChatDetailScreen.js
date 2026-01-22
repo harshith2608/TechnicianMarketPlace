@@ -1,4 +1,3 @@
-import * as ImagePicker from 'expo-image-picker';
 import { collection, doc, getDoc, getDocs, orderBy, query } from 'firebase/firestore';
 import { useEffect, useRef, useState } from 'react';
 import {
@@ -22,6 +21,15 @@ import { db } from '../config/firebase';
 import { createBooking } from '../redux/bookingSlice';
 import { initiateCall } from '../redux/callSlice';
 import { sendMessage, updateMessagesRealTime } from '../redux/messageSlice';
+
+// Lazy load ImagePicker to avoid native module loading issues
+let ImagePicker = null;
+const loadImagePicker = async () => {
+  if (!ImagePicker) {
+    ImagePicker = await import('expo-image-picker');
+  }
+  return ImagePicker;
+};
 
 export const ChatDetailScreen = ({ route, navigation }) => {
   const insets = useSafeAreaInsets();
@@ -108,7 +116,8 @@ export const ChatDetailScreen = ({ route, navigation }) => {
 
   const handlePickImage = async () => {
     try {
-      const result = await ImagePicker.launchImageLibraryAsync({
+      const picker = await loadImagePicker();
+      const result = await picker.launchImageLibraryAsync({
         mediaTypes: ['images'],
         allowsEditing: true,
         aspect: [4, 3],

@@ -1,4 +1,3 @@
-import * as ImagePicker from 'expo-image-picker';
 import { useEffect, useState } from 'react';
 import {
     ActivityIndicator,
@@ -21,6 +20,15 @@ import {
     updateService
 } from '../redux/serviceSlice';
 
+// Lazy load ImagePicker to avoid native module loading issues
+let ImagePicker = null;
+const loadImagePicker = async () => {
+  if (!ImagePicker) {
+    ImagePicker = await import('expo-image-picker');
+  }
+  return ImagePicker;
+};
+
 const CATEGORIES = ['Plumbing', 'Electrical', 'Carpentry', 'Painting', 'Cleaning', 'HVAC', 'Other'];
 
 export const MyServicesScreen = ({ navigation }) => {
@@ -38,6 +46,7 @@ export const MyServicesScreen = ({ navigation }) => {
   
   const [mode, setMode] = useState('list'); // 'list', 'create', or 'edit'
   const [editingService, setEditingService] = useState(null);
+  const [showMenu, setShowMenu] = useState(false);
   
   // Create/Edit service form state
   const [title, setTitle] = useState('');
@@ -54,7 +63,8 @@ export const MyServicesScreen = ({ navigation }) => {
 
   const pickImages = async () => {
     try {
-      const result = await ImagePicker.launchImageLibraryAsync({
+      const picker = await loadImagePicker();
+      const result = await picker.launchImageLibraryAsync({
         mediaTypes: ['images'],
         allowsMultiple: true,
         aspect: [4, 3],
@@ -104,6 +114,8 @@ export const MyServicesScreen = ({ navigation }) => {
         dispatch(fetchUserServices(user.id));
         resetForm();
         setMode('list');
+      } else if (result.type === updateService.rejected.type) {
+        Alert.alert('Error', result.payload || 'Failed to update service');
       }
     } else {
       // Create new service
@@ -123,6 +135,9 @@ export const MyServicesScreen = ({ navigation }) => {
         Alert.alert('Success', 'Service created successfully!');
         resetForm();
         setMode('list');
+        dispatch(fetchUserServices(user.id));
+      } else if (result.type === createService.rejected.type) {
+        Alert.alert('Error', result.payload || 'Failed to create service');
       }
     }
   };
@@ -216,15 +231,53 @@ export const MyServicesScreen = ({ navigation }) => {
           </TouchableOpacity>
           <Text style={styles.headerTitle}>My Services ({userServices.length})</Text>
           <TouchableOpacity
-            style={styles.addButton}
-            onPress={() => {
-              resetForm();
-              setMode('create');
-            }}
+            style={styles.menuIconButton}
+            onPress={() => setShowMenu(!showMenu)}
           >
-            <Text style={styles.addButtonText}>+ Add</Text>
+            <Text style={styles.menuIcon}>☰</Text>
           </TouchableOpacity>
         </View>
+
+        {showMenu && (
+          <View style={styles.menu}>
+            <TouchableOpacity 
+              style={styles.menuItem}
+              onPress={() => {
+                navigation.navigate('Home');
+                setShowMenu(false);
+              }}
+            >
+              <Text style={styles.menuItemText}>🏠 Home</Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={styles.menuItem}
+              onPress={() => {
+                navigation.navigate('Messages');
+                setShowMenu(false);
+              }}
+            >
+              <Text style={styles.menuItemText}>💬 Messages</Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={styles.menuItem}
+              onPress={() => {
+                navigation.navigate('TechnicianBookings');
+                setShowMenu(false);
+              }}
+            >
+              <Text style={styles.menuItemText}>📅 My Bookings</Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={styles.menuItem}
+              onPress={() => {
+                navigation.navigate('Profile');
+                setShowMenu(false);
+              }}
+            >
+              <Text style={styles.menuItemText}>✏️ Edit Profile</Text>
+            </TouchableOpacity>
+          </View>
+        )}
 
         {loading ? (
           <View style={styles.centerContainer}>
@@ -422,6 +475,33 @@ const styles = StyleSheet.create({
     color: '#007AFF',
     fontWeight: '500',
     width: 50,
+  },
+  menuIconButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  menuIcon: {
+    fontSize: 24,
+    color: '#333',
+  },
+  menu: {
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
+    paddingVertical: 5,
+  },
+  menuItem: {
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  menuItemText: {
+    fontSize: 16,
+    color: '#333',
+    fontWeight: '500',
   },
   addButton: {
     paddingHorizontal: 12,

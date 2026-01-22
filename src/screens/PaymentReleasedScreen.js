@@ -7,14 +7,15 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { doc, getDoc, getFirestore } from 'firebase/firestore';
 import { useEffect, useState } from 'react';
 import {
-    ActivityIndicator,
-    ScrollView,
-    Share,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View
+  ActivityIndicator,
+  ScrollView,
+  Share,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 const PaymentReleasedScreen = () => {
   const navigation = useNavigation();
@@ -270,7 +271,7 @@ const PaymentReleasedScreen = () => {
       {/* Footer */}
       <View style={styles.footer}>
         <Text style={styles.footerText}>
-          Questions? Contact our support team at support@technicianmarketplace.com
+          Questions? Contact our support team at support@fixbolt.com
         </Text>
       </View>
       </ScrollView>

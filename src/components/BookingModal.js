@@ -128,7 +128,7 @@ export const BookingModal = ({ visible, onClose, service, technician, onBook, lo
           <View style={styles.summarySection}>
             <View style={styles.summaryRow}>
               <Text style={styles.summaryLabel}>Service Fee:</Text>
-              <Text style={styles.summaryValue}>₹{service.price}</Text>
+              <Text style={styles.summaryValue}>₹{Math.round(service.price * 0.9)}</Text>
             </View>
             <View style={styles.summaryDivider} />
             <View style={styles.summaryRow}>
@@ -138,7 +138,7 @@ export const BookingModal = ({ visible, onClose, service, technician, onBook, lo
             <View style={styles.summaryDivider} />
             <View style={styles.summaryRow}>
               <Text style={styles.totalLabel}>Total Amount:</Text>
-              <Text style={styles.totalValue}>₹{Math.round(service.price * 1.1)}</Text>
+              <Text style={styles.totalValue}>₹{service.price}</Text>
             </View>
           </View>
         </ScrollView>

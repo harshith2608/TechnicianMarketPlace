@@ -13,7 +13,7 @@ import { generateOTP, validateOTP } from '../utils/otpService';
  */
 export const initiateServiceCompletion = createAsyncThunk(
   'serviceCompletion/initiate',
-  async ({ bookingId, conversationId, paymentId, customerId, technicianId }, { rejectWithValue }) => {
+  async ({ bookingId, conversationId, paymentId, razorpaySignature, razorpayOrderId, customerId, technicianId }, { rejectWithValue }) => {
     try {
       // Generate 4-digit OTP
       const otp = generateOTP();
@@ -48,9 +48,15 @@ export const initiateServiceCompletion = createAsyncThunk(
         createdAt: serverTimestamp()
       };
 
-      // Only add paymentId if it exists
+      // Only add payment info if it exists
       if (paymentId) {
         completionData.paymentId = paymentId;
+      }
+      if (razorpaySignature) {
+        completionData.razorpaySignature = razorpaySignature;
+      }
+      if (razorpayOrderId) {
+        completionData.razorpayOrderId = razorpayOrderId;
       }
 
       await setDoc(completionRef, completionData);
@@ -136,6 +142,35 @@ export const verifyServiceCompletionOTP = createAsyncThunk(
       await updateDoc(bookingRef, {
         status: 'completed'
       });
+
+      // Update technician earnings now that service is completed
+      // Get booking to access payment details
+      const bookingSnap = await getDoc(bookingRef);
+      if (bookingSnap.exists()) {
+        const booking = bookingSnap.data();
+        const technicianEarnings = booking.estimatedPrice ? Math.round(booking.estimatedPrice * 0.9) : 0;
+        
+        if (technicianEarnings > 0) {
+          const { doc: firebaseDoc, updateDoc: firebaseUpdateDoc, getDoc: firebaseGetDoc } = await import('firebase/firestore');
+          const technicianRef = firebaseDoc(db, 'users', completion.technicianId);
+          const techSnap = await firebaseGetDoc(technicianRef);
+          
+          if (techSnap.exists()) {
+            const currentEarnings = techSnap.data().totalEarnings || 0;
+            const currentPending = techSnap.data().pendingPayout || 0;
+            const currentTransactions = techSnap.data().totalTransactions || 0;
+            
+            await firebaseUpdateDoc(technicianRef, {
+              totalEarnings: currentEarnings + technicianEarnings,
+              pendingPayout: currentPending + technicianEarnings,
+              totalTransactions: currentTransactions + 1,
+            });
+            console.log(`💰 Technician earnings updated: +₹${technicianEarnings}`);
+          }
+        }
+      }
+
+      console.log('✓ Service completed and earnings updated');
 
       return {
         completionId,

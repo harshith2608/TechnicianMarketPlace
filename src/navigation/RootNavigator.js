@@ -4,6 +4,7 @@ import { useSelector } from 'react-redux';
 import { BookingsScreen } from '../screens/BookingsScreen';
 import { CallScreen } from '../screens/CallScreen';
 import { ChatDetailScreen } from '../screens/ChatDetailScreen';
+import { DevDashboardScreen } from '../screens/DevDashboardScreen';
 import { ForgotPasswordScreen } from '../screens/ForgotPasswordScreen';
 import { HomeScreen } from '../screens/HomeScreen';
 import { LegalAcceptanceScreen } from '../screens/LegalAcceptanceScreen';
@@ -17,6 +18,7 @@ import { PaymentReleasedScreen } from '../screens/PaymentReleasedScreen';
 import PaymentScreen from '../screens/PaymentScreen';
 import { PaymentSuccessScreen } from '../screens/PaymentSuccessScreen';
 import { PaymentVerifiedScreen } from '../screens/PaymentVerifiedScreen';
+import PayoutSettingsScreen from '../screens/PayoutSettingsScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
 import { RegisterScreen } from '../screens/RegisterScreen';
 import { ServiceCompletionScreen } from '../screens/ServiceCompletionScreen';
@@ -207,6 +209,13 @@ export const RootNavigator = () => {
                 headerLeft: () => null,
               }}
             />
+            <Stack.Screen
+              name="PayoutSettings"
+              component={PayoutSettingsScreen}
+              options={{
+                headerTitle: 'Earnings & Payouts',
+              }}
+            />
               </Stack.Group>
             )}
           </>
@@ -224,6 +233,10 @@ export const RootNavigator = () => {
             <Stack.Screen
               name="ForgotPassword"
               component={ForgotPasswordScreen}
+            />
+            <Stack.Screen
+              name="DevDashboard"
+              component={DevDashboardScreen}
             />
           </Stack.Group>
         )}

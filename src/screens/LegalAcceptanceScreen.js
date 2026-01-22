@@ -16,22 +16,22 @@ const LegalContent = {
   terms_of_service: {
     title: 'Terms of Service',
     content: `Platform Role:
-TechnicianMarketPlace connects customers with independent technicians. We are a platform facilitating transactions and do not employ any technician.
+FixBolt connects customers with independent technicians. We are a platform facilitating transactions and do not employ any technician.
 
 Cancellation Policy:
-Customers can cancel bookings free of cost up to 2 hours before the scheduled booking time. Cancellations within 2 hours or no-shows will incur 50-100% charges.
+Customers can cancel bookings with full refund up to 4 hours after booking. Cancellations after 4 hours but before service will incur a 20% cancellation fee (80% refund). Cancellations during service or no-shows will result in no refund.
 
 Material Requirements:
 Customers must provide basic materials such as water, electricity access, and a safe working environment. Technicians provide specialized tools and materials.
 
 Payment Terms:
-All payments are non-refundable except for cancellations within the 2-hour window. Service charges are final after completion.
+Full refund available within 4 hours of booking. Partial refunds (80%) available until 1 hour before scheduled service. No refunds for cancellations during service or after completion.
 
 User Conduct:
 Users must provide accurate information and conduct themselves professionally. Prohibited: harassment, violence, discrimination, illegal activities.
 
 Limitation of Liability:
-TechnicianMarketPlace shall not be liable for indirect, consequential, or punitive damages exceeding the service amount paid.`,
+FixBolt shall not be liable for indirect, consequential, or punitive damages exceeding the service amount paid.`,
   },
   warranty_policy: {
     title: 'Warranty Policy',
@@ -62,31 +62,32 @@ All warranty claims must be filed within 7 days. No claims accepted after this p
   },
   cancellation_policy: {
     title: 'Cancellation Policy',
-    content: `Free Cancellation: 2+ hours before booking
-- Full refund to original payment method
+    content: `Full Refund Window: 0-4 hours after booking
+- 100% refund to original payment method
 - No charges applied
-- Cancellation reason optional
+- Refund processed automatically
 
-Late Cancellation: 30 minutes to 2 hours before
-- 50% charge of service amount
-- 50% refund processed
-- Technician notified for rescheduling
+Partial Refund Window: 4 hours to 1 hour before service
+- 80% refund to customer
+- 20% cancellation fee (split 50/50 between technician & platform)
+- Technician retains 10% of service charge
+- Platform retains 10% processing fee
 
-Urgent Cancellation: Less than 30 minutes or no-show
-- 100% charge applied
-- No refund issued
-- Technician entitled to full payment
+No Refund: Less than 1 hour before service or during service
+- 100% service charge retained
+- Customer cannot cancel without technician approval
+- No-show results in full charge with possible account suspension
 
 Technician Cancellation:
-- If cancelled by technician: Full customer refund
-- If technician no-shows: Customer gets credit + refund
+- If cancelled by technician: 100% customer refund (outside all windows)
+- If technician no-shows: Customer gets 100% refund + account credit
 
 Rescheduling:
-Treated as cancellation + new booking. Original free/late cancellation rules apply.
+Treated as cancellation + new booking. Refund policy resets with new booking time.
 
 Special Cases:
-- Emergency medical situations: Full refund with documentation
-- Force majeure events: Case-by-case evaluation`,
+- Emergency situations: 100% refund with documentation
+- Force majeure events: Case-by-case evaluation by support team`,
   },
   privacy_policy: {
     title: 'Privacy Policy',
@@ -112,18 +113,18 @@ Data Retention:
 - Deleted account data: Purged within 90 days
 
 GDPR & CCPA Compliance:
-Users have rights to access, rectify, and delete their data. Submit requests to support@technicianmarketplace.com
+Users have rights to access, rectify, and delete their data. Submit requests to support@fixbolt.com
 
 Cookies & Tracking:
 We use analytics to understand usage patterns. You can disable tracking in settings.
 
 Contact:
-For privacy concerns, contact: privacy@technicianmarketplace.com`,
+For privacy concerns, contact: privacy@fixbolt.com`,
   },
   platform_disclaimer: {
     title: 'Platform Disclaimer',
     content: `Independent Contractor:
-All technicians are independent contractors, not employees. TechnicianMarketPlace is not responsible for their actions or work quality beyond warranty terms.
+All technicians are independent contractors, not employees. FixBolt is not responsible for their actions or work quality beyond warranty terms.
 
 Service Quality:
 We do not guarantee service quality or completion time. Customer satisfaction depends on communication and expectations set with technician.
@@ -194,7 +195,7 @@ export const LegalAcceptanceScreen = () => {
 
     try {
       await dispatch(acceptLegalTerms({ userId: user.id })).unwrap();
-      Alert.alert('Success', 'Legal terms accepted! Welcome to TechnicianMarketPlace.');
+      Alert.alert('Success', 'Legal terms accepted! Welcome to FixBolt.');
     } catch (error) {
       Alert.alert('Error', error || 'Failed to accept terms. Please try again.');
     }

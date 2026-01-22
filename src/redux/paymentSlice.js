@@ -60,8 +60,6 @@ export const initializePayment = createAsyncThunk(
         updatedAt: serverTimestamp(),
       });
 
-      console.log('✅ Payment initialized:', { tempBookingId, amount, commission: orderData.commission });
-
       return {
         tempBookingId,
         conversationId,
@@ -97,6 +95,7 @@ export const processPaymentSuccess = createAsyncThunk(
     description,
     estimatedPrice,
     razorpayPaymentId, 
+    razorpaySignature,
     orderId, 
     paymentMethod 
   }, { rejectWithValue }) => {
@@ -129,6 +128,9 @@ export const processPaymentSuccess = createAsyncThunk(
         confirmedAt: null,
         paymentStatus: 'completed',
         paymentId: razorpayPaymentId,
+        razorpayPaymentId: razorpayPaymentId,
+        razorpaySignature: razorpaySignature,
+        razorpayOrderId: orderId,
       });
 
       const bookingId = bookingDoc.id;
@@ -138,6 +140,7 @@ export const processPaymentSuccess = createAsyncThunk(
       await updateDoc(paymentRef, {
         bookingId,
         paymentId: razorpayPaymentId,
+        razorpaySignature: razorpaySignature,
         status: PAYMENT_CONFIG.PAYMENT_STATUS.CAPTURED,
         paymentMethod,
         capturedAt: serverTimestamp(),
@@ -153,7 +156,8 @@ export const processPaymentSuccess = createAsyncThunk(
         technicianEarnings: paymentData.technicianEarnings.toString(),
       });
 
-      console.log('✅ Payment captured & booking created:', { bookingId, paymentId: razorpayPaymentId });
+      // Earnings will be updated when technician completes service and enters OTP
+      // This ensures technician doesn't get paid if they don't show up
 
       return {
         bookingId,
@@ -345,21 +349,21 @@ export const requestPayout = createAsyncThunk(
   'payment/requestPayout',
   async ({ technicianId, amount, accountType, accountDetails }, { rejectWithValue }) => {
     try {
-      // Create payout
-      const payoutResult = await paymentService.createPayout({
-        technicianId,
-        amount,
-        accountType,
-        accountDetails,
-      });
+      // For now, create payout record without hitting Razorpay
+      // In production, would need proper fund account setup first
+      const payoutId = `payout_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
       // Create payout record in Firestore
       const payoutRef = doc(collection(db, 'payouts'));
       await setDoc(payoutRef, {
-        payoutId: payoutResult.payoutId,
+        payoutId,
         technicianId,
         amount,
         accountType,
+        accountDetails: {
+          accountNumber: accountDetails.accountNumber || accountDetails.upiId,
+          accountHolderName: accountDetails.accountHolderName || 'N/A',
+        },
         status: PAYMENT_CONFIG.PAYOUT_STATUS.PROCESSING,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
@@ -370,15 +374,24 @@ export const requestPayout = createAsyncThunk(
       const userSnap = await getDoc(userRef);
       if (userSnap.exists()) {
         const currentEarnings = userSnap.data().totalEarnings || 0;
+        const currentPending = userSnap.data().pendingPayout || 0;
         await updateDoc(userRef, {
-          totalEarnings: currentEarnings - amount,
+          totalEarnings: Math.max(0, currentEarnings - amount),
+          pendingPayout: Math.max(0, currentPending - amount),
           lastPayoutDate: serverTimestamp(),
         });
       }
 
-      console.log('✅ Payout requested:', { technicianId, amount, payoutId: payoutResult.payoutId });
+      console.log('✅ Payout requested:', { technicianId, amount, payoutId });
 
-      return payoutResult;
+      return {
+        payoutId,
+        technicianId,
+        amount,
+        accountType,
+        status: PAYMENT_CONFIG.PAYOUT_STATUS.PROCESSING,
+        createdAt: new Date().toISOString(),
+      };
     } catch (error) {
       console.error('Error requesting payout:', error);
       return rejectWithValue(error.message);

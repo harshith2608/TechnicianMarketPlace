@@ -1,7 +1,7 @@
 # Cancellation & Rescheduling Policy
 
-**Effective Date:** January 17, 2026  
-**Last Updated:** January 17, 2026
+**Effective Date:** January 20, 2026  
+**Last Updated:** January 20, 2026
 
 ---
 
@@ -9,7 +9,7 @@
 
 This policy governs how customers and technicians can cancel bookings, and what charges apply.
 
-**Key Rule:** Cancellations made **2 hours or more before** booking time are **FREE**. Cancellations within 2 hours incur charges.
+**Key Rule:** Cancellations made **within 4 hours of booking** are **FREE** (100% refund). Cancellations after 4 hours but before service incur a **20% fee** (80% refund). Cancellations during service or no-shows result in **no refund**.
 
 ---
 
@@ -17,18 +17,19 @@ This policy governs how customers and technicians can cancel bookings, and what 
 
 ### 2.1 Cancellation Windows & Charges
 
-| Time Before Booking | Cancellation Type | Customer Charge | Technician Compensation |
-|-------------------|------------------|-----------------|------------------------|
-| **More than 2 hours** | Free Cancellation | ₹0 (Full refund) | ₹0 (no compensation) |
-| **30 mins to 2 hours** | Late Cancellation | 50% of service charge | 50% of service charge |
-| **Less than 30 mins** | Last-Minute Cancel | 100% of service charge | 100% of service charge |
-| **No-Show** (not available) | No-Show | 100% of service charge | 100% of service charge |
+| Time Window | Cancellation Type | Customer Refund | Fee | Technician Gets |
+|-------------------|------------------|-----------------|--------|---------|
+| **0-4 hours after booking** | Full Refund | 100% of service charge | ₹0 | ₹0 |
+| **4 hours to 1 hour before service** | Partial Refund | 80% of service charge | 20% (split 50/50) | 10% of charge |
+| **Less than 1 hour before or during service** | No Refund | ₹0 | 100% | 100% of charge |
+| **No-Show** (customer unavailable) | No Refund | ₹0 | 100% | 100% of charge |
 
 **Examples:**
-- Service: ₹1,000 | Cancel 5 hours before → **FREE** (₹0 charge)
-- Service: ₹1,000 | Cancel 1 hour before → **₹500 charge** (50%)
-- Service: ₹1,000 | Cancel 15 mins before → **₹1,000 charge** (100%)
-- Service: ₹1,000 | Customer not available → **₹1,000 charge** (100%, no-show)
+- Service: ₹1,000 booked at 10:00 AM
+  - Cancel by 2:00 PM (4 hours) → **₹1,000 refund** (100%)
+  - Cancel at 3:00 PM (5 hours, 1 hour before) → **₹800 refund** (80%), Platform & Tech split ₹200
+  - Cancel at 3:45 PM (15 mins before) → **₹0 refund**, Technician gets ₹1,000
+  - Customer no-show → **₹0 refund**, Technician gets ₹1,000
 
 ### 2.2 How to Cancel
 
@@ -38,22 +39,29 @@ This policy governs how customers and technicians can cancel bookings, and what 
 3. Tap "Cancel Booking"
 4. Select reason (optional, helps us improve)
 5. Confirm cancellation
-6. Cancellation is immediate
+6. Refund processed automatically based on window
 
 **Confirmation:**
-- Instant confirmation message
+- Instant confirmation with refund amount displayed
 - Technician notified immediately
-- Refund initiated based on cancellation window
+- Refund initiated to original payment method
 
 ### 2.3 Refund Timeline
 
-**For Free Cancellations (2+ hours before):**
+**For Full Refunds (0-4 hours after booking):**
+
 - Refund initiated immediately
 - Money back in 5-7 business days
 
-**For Late/No-Show Cancellations:**
-- 50% or 100% charge retained (per policy)
-- Remaining amount (if any) refunded in 5-7 days
+**For Partial Refunds (4 hours to 1 hour before):**
+- 80% refund initiated immediately
+- 20% fee retained (10% to technician, 10% platform)
+- Money back in 5-7 business days
+
+**For No Refunds (Less than 1 hour before or during):**
+- No refund issued
+- Full amount goes to technician
+- Booking marked as cancelled
 
 ---
 
@@ -61,12 +69,11 @@ This policy governs how customers and technicians can cancel bookings, and what 
 
 ### 3.1 Cancellation by Technician
 
-| Notice Given | Technician Action | Customer Charge | Technician Penalty |
+| Timing | Technician Action | Customer Refund | Technician Penalty |
 |--------------|------------------|-----------------|-------------------|
-| **24+ hours** | Cancel w/ notice | ₹0 (Full refund) | None |
-| **12-24 hours** | Cancel w/ notice | ₹0 (Full refund) | Warning |
-| **Less than 12 hours** | Cancel w/ notice | ₹0 (Full refund) | 5% cancellation fee charged to technician |
-| **No-Show** (Tech unavailable) | No-Show | ₹0 + 5% bonus | 10% penalty + potential suspension |
+| **Any time before service** | Cancel booking | 100% refund | Warning & rating impact |
+| **During service** | Must complete or refund | 100% refund | Severe penalty & suspension risk |
+| **No-Show** (Tech unavailable) | Never responded | 100% refund + credit | 10% penalty + potential suspension |
 
 ### 3.2 Technician Cancellation Process
 
@@ -75,17 +82,18 @@ This policy governs how customers and technicians can cancel bookings, and what 
 2. Select booking → "Cancel Booking"
 3. Provide reason (mandatory)
 4. Confirm cancellation
-5. Customer immediately refunded
+5. Customer immediately gets 100% refund regardless of timing
 
 **Automatic Rescheduling:**
-- Platform offers to reschedule with another technician
-- Customer may accept or request full refund
+- Platform offers to match with another technician
+- Customer may accept or keep the refund
 - Priority matching with similar-rated technicians
+- Original 4-hour refund window resets
 
 ### 3.3 Technician No-Show Consequences
 
 **Repeated No-Shows:**
-- 1st No-Show: Warning
+- 1st No-Show: Warning & ₹500 penalty
 - 2nd No-Show: 7-day suspension
 - 3rd No-Show: 30-day suspension
 - 4th No-Show: Permanent removal from Platform
@@ -93,7 +101,7 @@ This policy governs how customers and technicians can cancel bookings, and what 
 **Penalties:**
 - 10% of booking amount charged as penalty
 - Negative review impact
-- Customer receives 5% bonus credit on next booking
+- Customer receives 100% refund + ₹100 platform credit
 - Report to licensing authorities (if applicable)
 
 ---
@@ -106,6 +114,7 @@ If customer needs to postpone, **rescheduling is better than canceling**:
 
 **Benefits:**
 - No cancellation charges
+- 4-hour refund window resets from new booking time
 - Technician remains committed
 - Same quality service guaranteed
 
@@ -116,6 +125,8 @@ If customer needs to postpone, **rescheduling is better than canceling**:
 2. Tap "Reschedule" (instead of "Cancel")
 3. Select new date/time
 4. Technician notified of new time
+5. New 4-hour refund window starts from new booking creation time
+
 5. Technician must accept new time
 6. No charges applied
 

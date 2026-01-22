@@ -145,7 +145,7 @@ export const ServiceDetailScreen = ({ route, navigation }) => {
       navigation.navigate('Payment', {
         conversationId: conversationResult.id,
         serviceId,
-        serviceName: freshService?.name || service?.name || 'Service',
+        serviceName: freshService?.title || service?.title || 'Service',
         servicePrice: finalPrice,
         technicianName: freshService?.technicianName || service?.technicianName,
         technicianId,

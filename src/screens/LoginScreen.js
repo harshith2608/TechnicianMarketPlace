@@ -1,15 +1,16 @@
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import { useState } from 'react';
 import {
-    ActivityIndicator,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useDispatch, useSelector } from 'react-redux';
+import { FixBoltLogo } from '../components/FixBoltLogo';
 import { PhoneVerificationModal } from '../components/PhoneVerificationModal';
 import { db } from '../config/firebase';
 import { clearError, loginUser, loginWithPhone } from '../redux/authSlice';
@@ -114,7 +115,13 @@ export const LoginScreen = ({ navigation }) => {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
-      <Text style={styles.title}>Technician Marketplace</Text>
+      {/* FixBolt Logo */}
+      <View style={styles.logoContainer}>
+        <FixBoltLogo width={100} height={100} />
+      </View>
+      
+      <Text style={styles.title}>FixBolt</Text>
+      <Text style={styles.tagline}>Quick Repairs, Expert Hands</Text>
       
       {error && (
         <View style={styles.errorContainer}>
@@ -223,6 +230,14 @@ export const LoginScreen = ({ navigation }) => {
         <Text style={styles.registerLink}>Don't have an account? Register</Text>
       </TouchableOpacity>
 
+      {/* Developer Testing Mode Button */}
+      <TouchableOpacity
+        style={styles.devButton}
+        onPress={() => navigation.navigate('DevDashboard')}
+      >
+        <Text style={styles.devButtonText}>🧪 Developer Testing</Text>
+      </TouchableOpacity>
+
       {/* Phone Verification Modal */}
       <PhoneVerificationModal
         visible={showPhoneModal}
@@ -243,12 +258,23 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: '#f5f5f5',
   },
+  logoContainer: {
+    alignItems: 'center',
+    marginBottom: 20,
+  },
   title: {
     fontSize: 28,
     fontWeight: 'bold',
-    marginBottom: 40,
+    marginBottom: 8,
     textAlign: 'center',
-    color: '#333',
+    color: '#0066FF',
+  },
+  tagline: {
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'center',
+    marginBottom: 30,
+    fontStyle: 'italic',
   },
   errorContainer: {
     backgroundColor: '#FFE5E5',
@@ -371,5 +397,20 @@ const styles = StyleSheet.create({
     color: '#999',
     textAlign: 'center',
     fontStyle: 'italic',
+  },
+  devButton: {
+    marginTop: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    backgroundColor: '#f0f0f0',
+    borderWidth: 1,
+    borderColor: '#ddd',
+    alignItems: 'center',
+  },
+  devButtonText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#666',
   },
 });
