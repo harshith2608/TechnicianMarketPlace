@@ -271,7 +271,7 @@ const PaymentReleasedScreen = () => {
       {/* Footer */}
       <View style={styles.footer}>
         <Text style={styles.footerText}>
-          Questions? Contact our support team at support@technicianmarketplace.com
+          Questions? Contact our support team at support@fixbolt.com
         </Text>
       </View>
       </ScrollView>

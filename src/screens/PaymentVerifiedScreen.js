@@ -336,7 +336,7 @@ const PaymentVerifiedScreen = () => {
       <View style={styles.footer}>
         <Text style={styles.footerTitle}>Need Help?</Text>
         <Text style={styles.footerText}>
-          Contact support@technicianmarketplace.com or call our helpline for payment-related queries.
+          Contact support@fixbolt.com or call our helpline for payment-related queries.
         </Text>
       </View>
     </ScrollView>

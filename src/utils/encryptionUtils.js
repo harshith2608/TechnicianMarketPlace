@@ -62,7 +62,7 @@ seedPRNG().catch(err => {
  * @returns {Uint8Array} 32-byte key for nacl.secretbox
  */
 const getEncryptionKey = () => {
-  const keyString = process.env.EXPO_PUBLIC_ENCRYPTION_KEY || 'technicianmarketplace_secure_payout_key_2024';
+  const keyString = process.env.EXPO_PUBLIC_ENCRYPTION_KEY || 'fixbolt_secure_payout_key_2024';
   
   // Create a fixed-size key from the string (32 bytes for nacl.secretbox)
   // This is deterministic so the same key is always generated from the same input

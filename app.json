@@ -1,16 +1,16 @@
 {
   "expo": {
-    "name": "TechnicianMarketPlace",
-    "slug": "TechnicianMarketPlace",
+    "name": "FixBolt",
+    "slug": "fixbolt",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "technicianmarketplace",
+    "scheme": "fixbolt",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.technicianmarketplace.app"
+      "bundleIdentifier": "com.fixbolt.app"
     },
     "android": {
       "adaptiveIcon": {
@@ -21,7 +21,7 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.technicianmarketplace.app"
+      "package": "com.fixbolt.app"
     },
     "web": {
       "output": "static",

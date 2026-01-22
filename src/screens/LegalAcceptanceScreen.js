@@ -16,7 +16,7 @@ const LegalContent = {
   terms_of_service: {
     title: 'Terms of Service',
     content: `Platform Role:
-TechnicianMarketPlace connects customers with independent technicians. We are a platform facilitating transactions and do not employ any technician.
+FixBolt connects customers with independent technicians. We are a platform facilitating transactions and do not employ any technician.
 
 Cancellation Policy:
 Customers can cancel bookings with full refund up to 4 hours after booking. Cancellations after 4 hours but before service will incur a 20% cancellation fee (80% refund). Cancellations during service or no-shows will result in no refund.
@@ -31,7 +31,7 @@ User Conduct:
 Users must provide accurate information and conduct themselves professionally. Prohibited: harassment, violence, discrimination, illegal activities.
 
 Limitation of Liability:
-TechnicianMarketPlace shall not be liable for indirect, consequential, or punitive damages exceeding the service amount paid.`,
+FixBolt shall not be liable for indirect, consequential, or punitive damages exceeding the service amount paid.`,
   },
   warranty_policy: {
     title: 'Warranty Policy',
@@ -113,18 +113,18 @@ Data Retention:
 - Deleted account data: Purged within 90 days
 
 GDPR & CCPA Compliance:
-Users have rights to access, rectify, and delete their data. Submit requests to support@technicianmarketplace.com
+Users have rights to access, rectify, and delete their data. Submit requests to support@fixbolt.com
 
 Cookies & Tracking:
 We use analytics to understand usage patterns. You can disable tracking in settings.
 
 Contact:
-For privacy concerns, contact: privacy@technicianmarketplace.com`,
+For privacy concerns, contact: privacy@fixbolt.com`,
   },
   platform_disclaimer: {
     title: 'Platform Disclaimer',
     content: `Independent Contractor:
-All technicians are independent contractors, not employees. TechnicianMarketPlace is not responsible for their actions or work quality beyond warranty terms.
+All technicians are independent contractors, not employees. FixBolt is not responsible for their actions or work quality beyond warranty terms.
 
 Service Quality:
 We do not guarantee service quality or completion time. Customer satisfaction depends on communication and expectations set with technician.
@@ -195,7 +195,7 @@ export const LegalAcceptanceScreen = () => {
 
     try {
       await dispatch(acceptLegalTerms({ userId: user.id })).unwrap();
-      Alert.alert('Success', 'Legal terms accepted! Welcome to TechnicianMarketPlace.');
+      Alert.alert('Success', 'Legal terms accepted! Welcome to FixBolt.');
     } catch (error) {
       Alert.alert('Error', error || 'Failed to accept terms. Please try again.');
     }

@@ -1,12 +1,12 @@
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import { useState } from 'react';
 import {
-    ActivityIndicator,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useDispatch, useSelector } from 'react-redux';
@@ -114,7 +114,7 @@ export const LoginScreen = ({ navigation }) => {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
-      <Text style={styles.title}>Technician Marketplace</Text>
+      <Text style={styles.title}>FixBolt</Text>
       
       {error && (
         <View style={styles.errorContainer}>

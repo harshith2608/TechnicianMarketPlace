@@ -1,6 +1,6 @@
 /**
  * Payment Configuration
- * Centralized payment settings for TechnicianMarketPlace
+ * Centralized payment settings for FixBolt
  * 
  * Commission: 10% with ₹200 cap per transaction
  * Refund Policy: Time-based with partial fees
